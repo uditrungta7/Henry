@@ -174,32 +174,28 @@ export default function PublishPanel({
 }
 
 function ResultList({ results: initial }: { results: RecipientResult[] }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
-  // Own the rows locally so a resend can update its row's status in place.
+  // Own the rows locally so a resend updates its row's status in place the
+  // instant the send returns — no full-page refresh to wait on.
   const [results, setResults] = useState<RecipientResult[]>(initial);
   const [resendingId, setResendingId] = useState<string | null>(null);
 
   const count = (s: RecipientResult["status"]) =>
     results.filter((r) => r.status === s).length;
 
-  function resend(row: RecipientResult) {
+  async function resend(row: RecipientResult) {
     if (!row.emailId) return;
     setResendingId(row.emailId);
-    startTransition(async () => {
-      const res = await resendEmail(row.emailId!);
-      setResults((rows) =>
-        rows.map((r) =>
-          r.emailId === row.emailId
-            ? res.error
-              ? { ...r, status: "failed", detail: res.error }
-              : { ...r, status: "sent", detail: "Resent", emailId: undefined }
-            : r
-        )
-      );
-      setResendingId(null);
-      router.refresh();
-    });
+    const res = await resendEmail(row.emailId!);
+    setResults((rows) =>
+      rows.map((r) =>
+        r.emailId === row.emailId
+          ? res.error
+            ? { ...r, status: "failed", detail: res.error }
+            : { ...r, status: "sent", detail: "Resent", emailId: undefined }
+          : r
+      )
+    );
+    setResendingId(null);
   }
 
   return (
@@ -228,7 +224,7 @@ function ResultList({ results: initial }: { results: RecipientResult[] }) {
               {r.status === "failed" && r.emailId && (
                 <Button
                   variant="secondary"
-                  disabled={pending}
+                  disabled={resendingId === r.emailId}
                   onClick={() => resend(r)}
                 >
                   {resendingId === r.emailId ? "Sending…" : "Resend"}

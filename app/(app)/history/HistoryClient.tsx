@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { Button, StatusBadge } from "@/components/ui";
 import { formatDayLabel } from "@/lib/dates";
 import { resendEmail } from "../schedule/publish";
@@ -100,34 +99,40 @@ function PublishRow({ publish }: { publish: PublishRecord }) {
 }
 
 function EmailRow({ email }: { email: EmailRecord }) {
-  const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [sending, setSending] = useState(false);
+  // Track status locally so the row updates the instant the send returns,
+  // without waiting on a full-page re-fetch.
+  const [status, setStatus] = useState(email.status);
+  const [error, setError] = useState(email.error);
+
+  async function resend() {
+    setSending(true);
+    const res = await resendEmail(email.id);
+    setStatus(res.error ? "failed" : "sent");
+    setError(res.error ?? null);
+    setSending(false);
+  }
 
   return (
     <li className="flex items-center justify-between gap-2 py-2">
       <span>
         {email.employee?.name ?? email.to_email ?? "Unknown"}
-        {email.status === "failed" && email.error && (
-          <span className="text-sm text-slate-500"> — {email.error}</span>
+        {status === "failed" && error && (
+          <span className="text-sm text-slate-500"> — {error}</span>
         )}
       </span>
       <span className="flex items-center gap-2">
         {email.to_email && (
-          <Button
-            variant="secondary"
-            disabled={pending}
-            onClick={() =>
-              startTransition(async () => {
-                await resendEmail(email.id);
-                router.refresh();
-              })
-            }
-          >
-            {email.status === "failed" ? "Resend" : "Send again"}
+          <Button variant="secondary" disabled={sending} onClick={resend}>
+            {sending
+              ? "Sending…"
+              : status === "failed"
+                ? "Resend"
+                : "Send again"}
           </Button>
         )}
-        <StatusBadge tone={email.status}>
-          {{ sent: "Sent", failed: "Failed", queued: "Queued" }[email.status]}
+        <StatusBadge tone={status}>
+          {{ sent: "Sent", failed: "Failed", queued: "Queued" }[status]}
         </StatusBadge>
       </span>
     </li>
