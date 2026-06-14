@@ -26,10 +26,13 @@ export type TimeOff = {
 export type Employee = {
   id: string;
   name: string;
+  eid: string | null;
   role: string | null;
   rating: number | null;
   phone: string | null;
   email: string | null;
+  city: string | null;
+  state: string | null;
   color: string;
   is_on_call: boolean;
   is_active: boolean;
@@ -38,10 +41,13 @@ export type Employee = {
 
 const empty: EmployeeInput = {
   name: "",
+  eid: null,
   role: null,
   rating: null,
   phone: null,
   email: null,
+  city: null,
+  state: null,
   color: "#16a34a",
   is_on_call: false,
 };
@@ -108,6 +114,7 @@ export default function EmployeesClient({
             <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
+                <th className="px-4 py-3 font-medium">EID</th>
                 <th className="px-4 py-3 font-medium">Role</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Time off</th>
@@ -131,6 +138,7 @@ export default function EmployeesClient({
                       )}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-slate-600">{e.eid ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {e.role ? titleCase(e.role) : "—"}
                   </td>
@@ -227,10 +235,13 @@ function EmployeeForm({
     initial
       ? {
           name: initial.name,
+          eid: initial.eid,
           role: initial.role,
           rating: initial.rating,
           phone: initial.phone,
           email: initial.email,
+          city: initial.city,
+          state: initial.state,
           color: initial.color,
           is_on_call: initial.is_on_call,
         }
@@ -265,13 +276,21 @@ function EmployeeForm({
   return (
     <Modal title={initial ? "Edit employee" : "Add employee"} onClose={onClose}>
       <form onSubmit={submit} className="space-y-4">
-        <Field label="Name">
-          <Input
-            value={form.name}
-            onChange={(e) => set("name", e.target.value)}
-            autoFocus
-          />
-        </Field>
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Name">
+            <Input
+              value={form.name}
+              onChange={(e) => set("name", e.target.value)}
+              autoFocus
+            />
+          </Field>
+          <Field label="Employee ID (EID)">
+            <Input
+              value={form.eid ?? ""}
+              onChange={(e) => set("eid", e.target.value || null)}
+            />
+          </Field>
+        </div>
         <div className="grid grid-cols-2 gap-4">
           <Field label="Role">
             <Input
@@ -279,7 +298,7 @@ function EmployeeForm({
               onChange={(e) => set("role", e.target.value || null)}
             />
           </Field>
-          <Field label="Rating (1–10)">
+          <Field label="E-Rating (1–10)">
             <Input
               type="number"
               min={1}
@@ -298,10 +317,24 @@ function EmployeeForm({
             onChange={(e) => set("email", e.target.value || null)}
           />
         </Field>
-        <Field label="Phone">
+        <div className="grid grid-cols-2 gap-4">
+          <Field label="Phone">
+            <Input
+              value={form.phone ?? ""}
+              onChange={(e) => set("phone", e.target.value || null)}
+            />
+          </Field>
+          <Field label="City">
+            <Input
+              value={form.city ?? ""}
+              onChange={(e) => set("city", e.target.value || null)}
+            />
+          </Field>
+        </div>
+        <Field label="State">
           <Input
-            value={form.phone ?? ""}
-            onChange={(e) => set("phone", e.target.value || null)}
+            value={form.state ?? ""}
+            onChange={(e) => set("state", e.target.value || null)}
           />
         </Field>
         <Field label="Color">

@@ -18,10 +18,13 @@ export type CustomerField =
 
 export type EmployeeField =
   | "name"
+  | "eid"
   | "role"
   | "rating"
   | "phone"
-  | "email";
+  | "email"
+  | "city"
+  | "state";
 
 type FieldDef<F extends string> = {
   field: F;
@@ -44,10 +47,13 @@ export const CUSTOMER_FIELDS: FieldDef<CustomerField>[] = [
 
 export const EMPLOYEE_FIELDS: FieldDef<EmployeeField>[] = [
   { field: "name", label: "Full name", required: true, match: ["full name", "name"] },
+  { field: "eid", label: "Employee ID (EID)", match: ["eid"] },
   { field: "role", label: "Role / position", match: ["position", "role", "title"] },
-  { field: "rating", label: "Rating (1-10)", match: ["e-rating", "rating"] },
+  { field: "rating", label: "E-Rating (1-10)", match: ["e-rating", "rating"] },
   { field: "phone", label: "Phone", match: ["phone"] },
   { field: "email", label: "Email (delivery address)", match: ["real email", "email"] },
+  { field: "city", label: "City", match: ["city"] },
+  { field: "state", label: "State", match: ["state"] },
 ];
 
 // A mapping is field -> source column header (or null if unmapped).
@@ -110,6 +116,42 @@ function cell(row: Record<string, unknown>, header: string | null): string {
   return v == null ? "" : String(v).trim();
 }
 
+export const COLOR_SHEET = "FORMATTING COLOR";
+
+// Normalize a SheetJS fill rgb ("FFFF00" or "FFFFFF00") to a #RRGGBB hex string.
+export function fillToHex(rgb: string | undefined): string | null {
+  if (!rgb) return null;
+  const hex = rgb.length === 8 ? rgb.slice(2) : rgb; // drop leading alpha
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) return null;
+  return `#${hex.toLowerCase()}`;
+}
+
+// Map lower(customer name) -> color hex, read from the FORMATTING COLOR sheet's
+// cell fills (column with the customer name). The worksheet must be read with
+// { cellStyles: true } so cells carry a `.s` style with fgColor.
+export function colorsByName(
+  ws: Record<string, { v?: unknown; s?: { fgColor?: { rgb?: string } } }> & {
+    "!ref"?: string;
+  }
+): Map<string, string> {
+  const colors = new Map<string, string>();
+  const ref = ws["!ref"];
+  if (!ref) return colors;
+
+  // Walk every cell; whichever holds a customer name with a solid fill wins.
+  for (const addr of Object.keys(ws)) {
+    if (addr.startsWith("!")) continue;
+    const cellData = ws[addr];
+    const name = cellData?.v;
+    const hex = fillToHex(cellData?.s?.fgColor?.rgb);
+    if (typeof name === "string" && name.trim() && hex) {
+      const key = name.trim().toLowerCase();
+      if (!colors.has(key)) colors.set(key, hex);
+    }
+  }
+  return colors;
+}
+
 export type CustomerRecord = {
   name: string;
   contact_name: string | null;
@@ -117,14 +159,18 @@ export type CustomerRecord = {
   address: string | null;
   open_start: string | null;
   open_end: string | null;
+  color: string | null;
 };
 
 export type EmployeeRecord = {
   name: string;
+  eid: string | null;
   role: string | null;
   rating: number | null;
   phone: string | null;
   email: string | null;
+  city: string | null;
+  state: string | null;
   missingEmail: boolean;
 };
 
@@ -139,10 +185,12 @@ function joinAddress(street: string, city: string, zip: string): string | null {
 
 export function toCustomer(
   row: Record<string, unknown>,
-  map: Mapping<CustomerField>
+  map: Mapping<CustomerField>,
+  colors?: Map<string, string>
 ): CustomerRecord {
+  const name = cell(row, map.name);
   return {
-    name: cell(row, map.name),
+    name,
     contact_name: blank(cell(row, map.contact_name)),
     phone: blank(cell(row, map.phone)),
     address: joinAddress(
@@ -152,6 +200,7 @@ export function toCustomer(
     ),
     open_start: parseTime(row[map.open_start ?? ""]),
     open_end: parseTime(row[map.open_end ?? ""]),
+    color: colors?.get(name.trim().toLowerCase()) ?? null,
   };
 }
 
@@ -168,10 +217,13 @@ export function toEmployee(
   const email = blank(cell(row, map.email).toLowerCase());
   return {
     name: cell(row, map.name),
+    eid: blank(cell(row, map.eid)),
     role: blank(cell(row, map.role)),
     rating,
     phone: blank(cell(row, map.phone)),
     email,
+    city: blank(cell(row, map.city)),
+    state: blank(cell(row, map.state)),
     missingEmail: email === null,
   };
 }

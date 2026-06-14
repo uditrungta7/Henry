@@ -5,10 +5,13 @@ import { createClient } from "@/lib/supabase/server";
 
 export type EmployeeInput = {
   name: string;
+  eid: string | null;
   role: string | null;
   rating: number | null;
   phone: string | null;
   email: string | null;
+  city: string | null;
+  state: string | null;
   color: string;
   is_on_call: boolean;
 };

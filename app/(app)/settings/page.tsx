@@ -14,7 +14,7 @@ export default async function SettingsPage() {
       .order("name"),
     supabase
       .from("employees")
-      .select("name, role, rating, phone, email")
+      .select("name, eid, role, rating, phone, email, city, state")
       .eq("is_active", true)
       .order("name"),
   ]);

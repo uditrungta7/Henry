@@ -15,10 +15,13 @@ type CustomerRow = {
 
 type EmployeeRow = {
   name: string;
+  eid: string | null;
   role: string | null;
   rating: number | null;
   phone: string | null;
   email: string | null;
+  city: string | null;
+  state: string | null;
 };
 
 export type ExportData = {
@@ -66,10 +69,13 @@ export default function ExportClient({
   function exportEmployees() {
     const rows = data.employees.map((e) => ({
       Name: e.name,
+      EID: e.eid ?? "",
       Role: e.role ?? "",
-      Rating: e.rating ?? "",
+      "E-Rating": e.rating ?? "",
       Phone: e.phone ?? "",
       Email: e.email ?? "",
+      City: e.city ?? "",
+      State: e.state ?? "",
     }));
     downloadSheet(rows, "Employees", `${prefix}-employees.xlsx`);
   }

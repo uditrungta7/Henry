@@ -47,7 +47,7 @@ export async function POST(request: Request) {
   // ---- Customers: match on lower(name) within the company ----
   const { data: existingCustomers } = await supabase
     .from("customers")
-    .select("id, name, contact_name, phone, address, open_start, open_end");
+    .select("id, name, contact_name, phone, address, open_start, open_end, color");
   const customerByName = new Map(
     (existingCustomers ?? []).map((c) => [c.name.trim().toLowerCase(), c])
   );
@@ -66,6 +66,8 @@ export async function POST(request: Request) {
           address: preferIncoming(rec.address, existing.address),
           open_start: preferIncoming(rec.open_start, existing.open_start),
           open_end: preferIncoming(rec.open_end, existing.open_end),
+          // Only apply a spreadsheet color when present; keep existing otherwise.
+          color: rec.color ?? existing.color,
         })
         .eq("id", existing.id);
       if (error) return fail(error.message);
@@ -79,6 +81,8 @@ export async function POST(request: Request) {
         address: rec.address,
         open_start: rec.open_start,
         open_end: rec.open_end,
+        // Omit color when none parsed so the DB default applies.
+        ...(rec.color ? { color: rec.color } : {}),
       });
       if (error) return fail(error.message);
       customersAdded++;
@@ -88,7 +92,7 @@ export async function POST(request: Request) {
   // ---- Employees: match on lower(name) + email within the company ----
   const { data: existingEmployees } = await supabase
     .from("employees")
-    .select("id, name, email, role, rating, phone");
+    .select("id, name, email, role, rating, phone, eid, city, state");
   const employeeKey = (name: string, email: string | null) =>
     `${name.trim().toLowerCase()}|${(email ?? "").toLowerCase()}`;
   const employeeByKey = new Map(
@@ -106,6 +110,9 @@ export async function POST(request: Request) {
           role: preferIncoming(rec.role, existing.role),
           rating: rec.rating ?? existing.rating,
           phone: preferIncoming(rec.phone, existing.phone),
+          eid: preferIncoming(rec.eid, existing.eid),
+          city: preferIncoming(rec.city, existing.city),
+          state: preferIncoming(rec.state, existing.state),
         })
         .eq("id", existing.id);
       if (error) return fail(error.message);
@@ -118,6 +125,9 @@ export async function POST(request: Request) {
         rating: rec.rating,
         phone: rec.phone,
         email: rec.email,
+        eid: rec.eid,
+        city: rec.city,
+        state: rec.state,
       });
       if (error) return fail(error.message);
       employeesAdded++;

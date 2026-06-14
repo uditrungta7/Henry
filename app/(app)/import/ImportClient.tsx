@@ -5,11 +5,13 @@ import * as XLSX from "xlsx";
 import {
   CUSTOMER_SHEET,
   EMPLOYEE_SHEET,
+  COLOR_SHEET,
   CUSTOMER_FIELDS,
   EMPLOYEE_FIELDS,
   autoMap,
   toCustomer,
   toEmployee,
+  colorsByName,
   type Mapping,
   type CustomerField,
   type EmployeeField,
@@ -20,6 +22,7 @@ type Parsed = {
   customerRows: Record<string, unknown>[];
   employeeHeaders: string[];
   employeeRows: Record<string, unknown>[];
+  colors: [string, string][]; // [lower(name), hex] — serializable for state
 };
 
 type Result = {
@@ -54,9 +57,16 @@ export default function ImportClient() {
     setResult(null);
     try {
       const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: "array" });
+      // cellStyles so we can read the customer fill colors below.
+      const wb = XLSX.read(buf, { type: "array", cellStyles: true });
       const cust = readSheet(wb, CUSTOMER_SHEET);
       const emp = readSheet(wb, EMPLOYEE_SHEET);
+
+      // Customer colors from the FORMATTING COLOR sheet's cell fills (best-effort).
+      const colorSheet = wb.Sheets[COLOR_SHEET];
+      const colors = colorSheet
+        ? [...colorsByName(colorSheet as never).entries()]
+        : [];
 
       if (cust.headers.length === 0 && emp.headers.length === 0) {
         setError(
@@ -71,6 +81,7 @@ export default function ImportClient() {
         customerRows: cust.rows,
         employeeHeaders: emp.headers,
         employeeRows: emp.rows,
+        colors,
       });
       setCustMap(autoMap(CUSTOMER_FIELDS, cust.headers));
       setEmpMap(autoMap(EMPLOYEE_FIELDS, emp.headers));
@@ -90,8 +101,9 @@ export default function ImportClient() {
     setSubmitting(true);
     setError("");
     try {
+      const colorMap = new Map(parsed.colors);
       const customers = parsed.customerRows
-        .map((r) => toCustomer(r, custMap))
+        .map((r) => toCustomer(r, custMap, colorMap))
         .filter((c) => c.name.trim());
       const employees = parsed.employeeRows
         .map((r) => toEmployee(r, empMap))
@@ -140,13 +152,15 @@ export default function ImportClient() {
 
   // ---- Mapping + preview screen ----
   if (parsed && custMap && empMap) {
+    const colorMap = new Map(parsed.colors);
     const customerPreview = parsed.customerRows
-      .map((r) => toCustomer(r, custMap))
+      .map((r) => toCustomer(r, custMap, colorMap))
       .filter((c) => c.name.trim());
     const employeePreview = parsed.employeeRows
       .map((r) => toEmployee(r, empMap))
       .filter((e) => e.name.trim());
     const missingEmailCount = employeePreview.filter((e) => e.missingEmail).length;
+    const coloredCount = customerPreview.filter((c) => c.color).length;
 
     return (
       <div className="space-y-8">
@@ -172,9 +186,25 @@ export default function ImportClient() {
           }
         />
 
+        {coloredCount > 0 && (
+          <p className="text-sm text-slate-500">
+            Matched a color from the spreadsheet for {coloredCount} of{" "}
+            {customerPreview.length} customers.
+          </p>
+        )}
+
         <PreviewTable
-          columns={["Name", "Address", "Contact", "Opens", "Closes"]}
+          columns={["", "Name", "Address", "Contact", "Opens", "Closes"]}
           rows={customerPreview.slice(0, 8).map((c) => [
+            c.color ? (
+              <span
+                className="inline-block h-4 w-4 rounded-full border border-slate-200"
+                style={{ backgroundColor: c.color }}
+                title={c.color}
+              />
+            ) : (
+              "—"
+            ),
             c.name,
             c.address ?? "—",
             c.contact_name ?? "—",
@@ -203,11 +233,14 @@ export default function ImportClient() {
         )}
 
         <PreviewTable
-          columns={["Name", "Role", "Rating", "Email"]}
+          columns={["Name", "EID", "Role", "E-Rating", "City", "State", "Email"]}
           rows={employeePreview.slice(0, 8).map((e) => [
             e.name,
+            e.eid ?? "—",
             e.role ?? "—",
             e.rating != null ? String(e.rating) : "—",
+            e.city ?? "—",
+            e.state ?? "—",
             e.missingEmail ? "⚠ missing" : e.email!,
           ])}
           total={employeePreview.length}
@@ -329,7 +362,7 @@ function PreviewTable({
   total,
 }: {
   columns: string[];
-  rows: string[][];
+  rows: React.ReactNode[][];
   total: number;
 }) {
   return (

@@ -9,7 +9,7 @@ export default async function EmployeesPage() {
   const { data } = await supabase
     .from("employees")
     .select(
-      "id, name, role, rating, phone, email, color, is_on_call, is_active, time_off:employee_time_off(id, start_date, end_date, reason)"
+      "id, name, eid, role, rating, phone, email, city, state, color, is_on_call, is_active, time_off:employee_time_off(id, start_date, end_date, reason)"
     )
     .order("name")
     // Soonest leave first, in both the table cell and the modal list.
