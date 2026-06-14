@@ -327,7 +327,6 @@ export default function Board({
                           employees={employees}
                           empById={empById}
                           timeOff={timeOff}
-                          pending={pending}
                           onAssign={(empId) =>
                             doAssign(c.id, empId, date, shift)
                           }
@@ -347,7 +346,6 @@ export default function Board({
                           employees={employees}
                           empById={empById}
                           timeOff={timeOff}
-                          pending={pending}
                           onAssign={(empId, shift) =>
                             doAssign(c.id, empId, day, shift)
                           }
@@ -480,7 +478,6 @@ function Cell({
   employees,
   empById,
   timeOff,
-  pending,
   onAssign,
   onUnassign,
   onNotes,
@@ -492,7 +489,6 @@ function Cell({
   employees: BoardEmployee[];
   empById: Map<string, BoardEmployee>;
   timeOff: TimeOff[];
-  pending: boolean;
   onAssign: (employeeId: string) => void;
   onUnassign: (id: string) => void;
   onNotes: (a: BoardAssignment) => void;
@@ -514,14 +510,12 @@ function Cell({
           employee={empById.get(assignment.employee_id)}
           onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
           closed={closed}
-          pending={pending}
           onUnassign={() => onUnassign(assignment.id)}
           onNotes={() => onNotes(assignment)}
         />
       ) : (
         <AssignSelect
           employees={employees}
-          disabled={pending}
           onAssign={onAssign}
           hint={closed ? "Site closed this shift" : null}
         />
@@ -538,7 +532,6 @@ function WeekDayCell({
   employees,
   empById,
   timeOff,
-  pending,
   onAssign,
   onUnassign,
 }: {
@@ -548,7 +541,6 @@ function WeekDayCell({
   employees: BoardEmployee[];
   empById: Map<string, BoardEmployee>;
   timeOff: TimeOff[];
-  pending: boolean;
   onAssign: (employeeId: string, shift: Shift) => void;
   onUnassign: (id: string) => void;
 }) {
@@ -565,7 +557,6 @@ function WeekDayCell({
             employees={employees}
             empById={empById}
             timeOff={timeOff}
-            pending={pending}
             onAssign={(empId) => onAssign(empId, shift)}
             onUnassign={onUnassign}
           />
@@ -583,7 +574,6 @@ function WeekShiftSlot({
   employees,
   empById,
   timeOff,
-  pending,
   onAssign,
   onUnassign,
 }: {
@@ -594,7 +584,6 @@ function WeekShiftSlot({
   employees: BoardEmployee[];
   empById: Map<string, BoardEmployee>;
   timeOff: TimeOff[];
-  pending: boolean;
   onAssign: (employeeId: string) => void;
   onUnassign: (id: string) => void;
 }) {
@@ -616,14 +605,12 @@ function WeekShiftSlot({
           employee={empById.get(assignment.employee_id)}
           onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
           closed={closed}
-          pending={pending}
           onUnassign={() => onUnassign(assignment.id)}
           onNotes={null}
         />
       ) : (
         <AssignSelect
           employees={employees}
-          disabled={pending}
           onAssign={onAssign}
           hint={closed ? "Closed" : null}
         />
@@ -637,7 +624,6 @@ function AssignmentChip({
   employee,
   onTimeOff: isOff,
   closed,
-  pending,
   onUnassign,
   onNotes,
 }: {
@@ -645,7 +631,6 @@ function AssignmentChip({
   employee: BoardEmployee | undefined;
   onTimeOff: boolean;
   closed: boolean;
-  pending: boolean;
   onUnassign: () => void;
   onNotes: (() => void) | null;
 }) {
@@ -676,7 +661,6 @@ function AssignmentChip({
         </button>
         <button
           onClick={onUnassign}
-          disabled={pending}
           className="text-slate-400 hover:text-red-600"
           title="Remove"
         >
@@ -720,12 +704,10 @@ function AssignmentChip({
 
 function AssignSelect({
   employees,
-  disabled,
   onAssign,
   hint,
 }: {
   employees: BoardEmployee[];
-  disabled: boolean;
   onAssign: (employeeId: string) => void;
   hint: string | null;
 }) {
@@ -733,7 +715,6 @@ function AssignSelect({
     <div>
       <select
         value=""
-        disabled={disabled}
         onChange={(e) => e.target.value && onAssign(e.target.value)}
         className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-slate-600"
       >
