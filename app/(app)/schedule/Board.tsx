@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useOptimistic } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -80,6 +80,51 @@ const parseCell = (id: string) => {
   return { customerId, date, shift: shift as Shift };
 };
 
+// Optimistic mutations applied to the board instantly, before the server
+// responds. useOptimistic reverts to authoritative server data when the
+// transition settles, so an error (e.g. double-book) snaps the board back.
+type OptimisticAction =
+  | { type: "add"; assignment: BoardAssignment }
+  | { type: "remove"; id: string }
+  | {
+      type: "move";
+      id: string;
+      toCustomerId: string;
+      toShift: Shift;
+      swapWithId: string | null;
+    }
+  | { type: "notes"; id: string; notes: string | null };
+
+function applyOptimistic(
+  list: BoardAssignment[],
+  action: OptimisticAction
+): BoardAssignment[] {
+  switch (action.type) {
+    case "add":
+      return [...list, action.assignment];
+    case "remove":
+      return list.filter((a) => a.id !== action.id);
+    case "notes":
+      return list.map((a) =>
+        a.id === action.id ? { ...a, notes: action.notes } : a
+      );
+    case "move": {
+      const moving = list.find((a) => a.id === action.id);
+      if (!moving) return list;
+      return list.map((a) => {
+        if (a.id === action.id) {
+          return { ...a, customer_id: action.toCustomerId, shift: action.toShift };
+        }
+        // Swap target takes the moving assignment's old cell.
+        if (action.swapWithId && a.id === action.swapWithId) {
+          return { ...a, customer_id: moving.customer_id, shift: moving.shift };
+        }
+        return a;
+      });
+    }
+  }
+}
+
 export default function Board({
   date,
   view,
@@ -87,7 +132,7 @@ export default function Board({
   companyName,
   customers,
   employees,
-  assignments,
+  assignments: serverAssignments,
   timeOff,
 }: Props) {
   const router = useRouter();
@@ -95,6 +140,13 @@ export default function Board({
   const [error, setError] = useState("");
   const [notesFor, setNotesFor] = useState<BoardAssignment | null>(null);
   const [publishOpen, setPublishOpen] = useState(false);
+
+  // Optimistic view of the assignments: updates instantly, reverts to server
+  // data when the transition settles (so errors roll back automatically).
+  const [assignments, applyOptimisticAction] = useOptimistic(
+    serverAssignments,
+    applyOptimistic
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -106,13 +158,45 @@ export default function Board({
     router.push(`/?date=${nextDate}&view=${nextView}`);
   }
 
-  function run(action: () => Promise<{ error?: string }>) {
+  // Run a server action, applying an optimistic board change first. The
+  // optimistic update is shown immediately; router.refresh() reconciles with
+  // the server, and a server error rolls the optimistic change back.
+  function run(
+    serverAction: () => Promise<{ error?: string }>,
+    optimistic?: OptimisticAction
+  ) {
     setError("");
     startTransition(async () => {
-      const res = await action();
+      if (optimistic) applyOptimisticAction(optimistic);
+      const res = await serverAction();
       if (res.error) setError(res.error);
       else router.refresh();
     });
+  }
+
+  function doAssign(
+    customerId: string,
+    employeeId: string,
+    day: string,
+    shift: Shift
+  ) {
+    run(() => assign(customerId, employeeId, day, shift), {
+      type: "add",
+      assignment: {
+        // Temp id for the optimistic chip; server assigns the real UUID on refresh.
+        id: `optimistic-${customerId}-${day}-${shift}-${employeeId}`,
+        customer_id: customerId,
+        employee_id: employeeId,
+        work_date: day,
+        shift,
+        notes: null,
+        status: "draft",
+      },
+    });
+  }
+
+  function doUnassign(id: string) {
+    run(() => unassign(id), { type: "remove", id });
   }
 
   function assignmentAt(customerId: string, day: string, shift: Shift) {
@@ -142,13 +226,21 @@ export default function Board({
 
     // Swap-on-drop happens within a single day; dnd cells carry their own date.
     const existing = assignmentAt(target.customerId, target.date, target.shift);
-    run(() =>
-      move(
-        assignmentId,
-        target.customerId,
-        target.shift,
-        existing?.id ?? null
-      )
+    run(
+      () =>
+        move(
+          assignmentId,
+          target.customerId,
+          target.shift,
+          existing?.id ?? null
+        ),
+      {
+        type: "move",
+        id: assignmentId,
+        toCustomerId: target.customerId,
+        toShift: target.shift,
+        swapWithId: existing?.id ?? null,
+      }
     );
   }
 
@@ -237,9 +329,9 @@ export default function Board({
                           timeOff={timeOff}
                           pending={pending}
                           onAssign={(empId) =>
-                            run(() => assign(c.id, empId, date, shift))
+                            doAssign(c.id, empId, date, shift)
                           }
-                          onUnassign={(id) => run(() => unassign(id))}
+                          onUnassign={(id) => doUnassign(id)}
                           onNotes={(a) => setNotesFor(a)}
                         />
                       ))
@@ -257,9 +349,9 @@ export default function Board({
                           timeOff={timeOff}
                           pending={pending}
                           onAssign={(empId, shift) =>
-                            run(() => assign(c.id, empId, day, shift))
+                            doAssign(c.id, empId, day, shift)
                           }
-                          onUnassign={(id) => run(() => unassign(id))}
+                          onUnassign={(id) => doUnassign(id)}
                         />
                       ))}
                 </tr>
@@ -273,13 +365,13 @@ export default function Board({
         <NotesModal
           assignment={notesFor}
           onClose={() => setNotesFor(null)}
-          onSave={(notes) =>
-            run(async () => {
-              const res = await setNotes(notesFor.id, notes);
-              if (!res.error) setNotesFor(null);
-              return res;
-            })
-          }
+          onSave={(notes) => {
+            setNotesFor(null);
+            run(
+              () => setNotes(notesFor.id, notes),
+              { type: "notes", id: notesFor.id, notes }
+            );
+          }}
         />
       )}
 

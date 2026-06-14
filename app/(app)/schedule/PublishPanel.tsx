@@ -173,12 +173,34 @@ export default function PublishPanel({
   );
 }
 
-function ResultList({ results }: { results: RecipientResult[] }) {
+function ResultList({ results: initial }: { results: RecipientResult[] }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
+  // Own the rows locally so a resend can update its row's status in place.
+  const [results, setResults] = useState<RecipientResult[]>(initial);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   const count = (s: RecipientResult["status"]) =>
     results.filter((r) => r.status === s).length;
+
+  function resend(row: RecipientResult) {
+    if (!row.emailId) return;
+    setResendingId(row.emailId);
+    startTransition(async () => {
+      const res = await resendEmail(row.emailId!);
+      setResults((rows) =>
+        rows.map((r) =>
+          r.emailId === row.emailId
+            ? res.error
+              ? { ...r, status: "failed", detail: res.error }
+              : { ...r, status: "sent", detail: "Resent", emailId: undefined }
+            : r
+        )
+      );
+      setResendingId(null);
+      router.refresh();
+    });
+  }
 
   return (
     <div className="space-y-3">
@@ -207,14 +229,9 @@ function ResultList({ results }: { results: RecipientResult[] }) {
                 <Button
                   variant="secondary"
                   disabled={pending}
-                  onClick={() =>
-                    startTransition(async () => {
-                      await resendEmail(r.emailId!);
-                      router.refresh();
-                    })
-                  }
+                  onClick={() => resend(r)}
                 >
-                  Resend
+                  {resendingId === r.emailId ? "Sending…" : "Resend"}
                 </Button>
               )}
               <StatusBadge tone={r.status}>{STATUS_LABEL[r.status]}</StatusBadge>
