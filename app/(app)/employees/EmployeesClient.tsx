@@ -43,8 +43,10 @@ const empty: EmployeeInput = {
 
 export default function EmployeesClient({
   employees,
+  today,
 }: {
   employees: Employee[];
+  today: string;
 }) {
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -135,7 +137,7 @@ export default function EmployeesClient({
                   <td className="px-4 py-3">
                     <Button variant="ghost" onClick={() => setTimeOffFor(e)}>
                       {e.time_off.length
-                        ? summarizeTimeOff(e.time_off)
+                        ? summarizeTimeOff(e.time_off, today)
                         : "Add"}
                     </Button>
                   </td>

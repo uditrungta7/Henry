@@ -23,12 +23,24 @@ export function formatShortDate(iso: string): string {
 }
 
 // Summarize one or more time-off ranges for a table cell, e.g. "Jun 16–18"
-// or "Jun 16–18 +1 more".
+// or "Jun 16–18 +1 more". Headlines the soonest range that hasn't ended yet
+// (falling back to the latest past range if all are over). `today` is an ISO
+// date string (YYYY-MM-DD); ISO dates compare correctly as strings.
 export function summarizeTimeOff(
-  ranges: { start_date: string; end_date: string }[]
+  ranges: { start_date: string; end_date: string }[],
+  today: string
 ): string {
   if (ranges.length === 0) return "";
-  const { start_date, end_date } = ranges[0];
+
+  // Soonest not-yet-ended range; if none, the most recent past one.
+  const upcoming = ranges
+    .filter((r) => r.end_date >= today)
+    .sort((a, b) => a.start_date.localeCompare(b.start_date));
+  const headline =
+    upcoming[0] ??
+    [...ranges].sort((a, b) => b.start_date.localeCompare(a.start_date))[0];
+
+  const { start_date, end_date } = headline;
   let label: string;
   if (start_date === end_date) {
     label = formatShortDate(start_date);

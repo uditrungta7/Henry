@@ -11,7 +11,12 @@ export default async function EmployeesPage() {
     .select(
       "id, name, role, rating, phone, email, color, is_on_call, is_active, time_off:employee_time_off(id, start_date, end_date, reason)"
     )
-    .order("name");
+    .order("name")
+    // Soonest leave first, in both the table cell and the modal list.
+    .order("start_date", { referencedTable: "employee_time_off", ascending: true });
 
-  return <EmployeesClient employees={(data ?? []) as Employee[]} />;
+  const today = new Date().toISOString().slice(0, 10);
+  return (
+    <EmployeesClient employees={(data ?? []) as Employee[]} today={today} />
+  );
 }
