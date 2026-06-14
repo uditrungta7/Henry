@@ -638,10 +638,18 @@ function AssignmentChip({
     id: assignment.id,
   });
 
+  // The whole chip is the drag handle. Inner buttons stop pointer-down from
+  // reaching the drag sensor so clicking Remove / Add note never starts a drag.
+  const stopDrag = (e: React.PointerEvent) => e.stopPropagation();
+
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-lg border p-2 ${isDragging ? "opacity-50" : ""} ${
+      {...listeners}
+      {...attributes}
+      className={`cursor-grab rounded-lg border p-2 active:cursor-grabbing ${
+        isDragging ? "opacity-50" : ""
+      } ${
         assignment.status === "published"
           ? "border-slate-200"
           : "border-dashed border-slate-300"
@@ -652,15 +660,12 @@ function AssignmentChip({
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <button
-          {...listeners}
-          {...attributes}
-          className="cursor-grab text-left font-medium active:cursor-grabbing"
-        >
+        <span className="text-left font-medium">
           {employee?.name ?? "Unknown"}
-        </button>
+        </span>
         <button
           onClick={onUnassign}
+          onPointerDown={stopDrag}
           className="text-slate-400 hover:text-red-600"
           title="Remove"
         >
@@ -693,6 +698,7 @@ function AssignmentChip({
       {onNotes && (
         <button
           onClick={onNotes}
+          onPointerDown={stopDrag}
           className="mt-1 text-xs text-blue-600 hover:underline"
         >
           {assignment.notes ? "Edit note" : "Add note"}
