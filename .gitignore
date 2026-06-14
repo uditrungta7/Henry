@@ -8,3 +8,6 @@ next-env.d.ts
 
 # Real customer data — keep on disk for import dev, never commit
 *.xlsx
+
+# Claude Code local session settings
+.claude/
