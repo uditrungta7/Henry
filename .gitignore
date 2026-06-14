@@ -1,0 +1,10 @@
+node_modules
+.next
+.env.local
+.env
+*.log
+.DS_Store
+next-env.d.ts
+
+# Real customer data — keep on disk for import dev, never commit
+*.xlsx
