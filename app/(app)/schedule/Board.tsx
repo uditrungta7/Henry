@@ -15,6 +15,7 @@ import { Button, Modal, Field, Input } from "@/components/ui";
 import { addDays, formatDayLabel, weekdayShort, monthDayShort } from "@/lib/dates";
 import { assign, unassign, move, setNotes, copyWeek } from "./actions";
 import { onTimeOff, customerClosed } from "./warnings";
+import PublishPanel from "./PublishPanel";
 import type {
   BoardCustomer,
   BoardEmployee,
@@ -56,6 +57,7 @@ export default function Board({
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
   const [notesFor, setNotesFor] = useState<BoardAssignment | null>(null);
+  const [publishOpen, setPublishOpen] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } })
@@ -131,6 +133,7 @@ export default function Board({
         view={view}
         pending={pending}
         onNavigate={navigate}
+        onPublish={() => setPublishOpen(true)}
         onCopyWeek={() =>
           run(async () => {
             const res = await copyWeek(date);
@@ -242,6 +245,19 @@ export default function Board({
           }
         />
       )}
+
+      {publishOpen && (
+        <PublishPanel
+          date={date}
+          assignedEmployees={employees.filter((e) =>
+            assignments.some(
+              (a) => a.work_date === date && a.employee_id === e.id
+            )
+          )}
+          allEmployees={employees}
+          onClose={() => setPublishOpen(false)}
+        />
+      )}
     </div>
   );
 }
@@ -251,12 +267,14 @@ function Toolbar({
   view,
   pending,
   onNavigate,
+  onPublish,
   onCopyWeek,
 }: {
   date: string;
   view: "day" | "week";
   pending: boolean;
   onNavigate: (date: string, view: "day" | "week") => void;
+  onPublish: () => void;
   onCopyWeek: () => void;
 }) {
   const step = view === "week" ? 7 : 1;
@@ -304,6 +322,11 @@ function Toolbar({
         {view === "week" && (
           <Button variant="secondary" disabled={pending} onClick={onCopyWeek}>
             Copy week → next
+          </Button>
+        )}
+        {view === "day" && (
+          <Button disabled={pending} onClick={onPublish}>
+            Publish day
           </Button>
         )}
       </div>
