@@ -116,6 +116,7 @@ export default function EmployeesClient({
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">EID</th>
                 <th className="px-4 py-3 font-medium">Role</th>
+                <th className="px-4 py-3 font-medium">City, State</th>
                 <th className="px-4 py-3 font-medium">Email</th>
                 <th className="px-4 py-3 font-medium">Time off</th>
                 <th className="px-4 py-3"></th>
@@ -141,6 +142,11 @@ export default function EmployeesClient({
                   <td className="px-4 py-3 text-slate-600">{e.eid ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {e.role ? titleCase(e.role) : "—"}
+                  </td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {[titleCase(e.city ?? ""), e.state ?? ""]
+                      .filter(Boolean)
+                      .join(", ") || "—"}
                   </td>
                   <td className="px-4 py-3 text-slate-600">
                     {e.email ?? (
