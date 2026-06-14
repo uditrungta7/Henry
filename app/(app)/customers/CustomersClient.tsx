@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Modal } from "@/components/ui";
+import { formatTime } from "@/lib/format";
 import { saveCustomer, setCustomerActive, type CustomerInput } from "./actions";
 
 export type Customer = {
@@ -85,9 +86,9 @@ export default function CustomersClient({
           onAdd={() => setEditing("new")}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-sm text-slate-500">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Address</th>
@@ -110,7 +111,7 @@ export default function CustomersClient({
                   <td className="px-4 py-3 text-slate-600">{c.address ?? "—"}</td>
                   <td className="px-4 py-3 text-slate-600">
                     {c.open_start && c.open_end
-                      ? `${c.open_start}–${c.open_end}`
+                      ? `${formatTime(c.open_start)}–${formatTime(c.open_end)}`
                       : "—"}
                   </td>
                   <td className="px-4 py-3 text-right">

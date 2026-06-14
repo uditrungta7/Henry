@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Modal } from "@/components/ui";
+import { titleCase, summarizeTimeOff, formatShortDate } from "@/lib/format";
 import {
   saveEmployee,
   setEmployeeActive,
@@ -95,9 +96,9 @@ export default function EmployeesClient({
           onAdd={() => setEditing("new")}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[65vh] overflow-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 text-sm text-slate-500">
+            <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-medium">Name</th>
                 <th className="px-4 py-3 font-medium">Role</th>
@@ -123,7 +124,9 @@ export default function EmployeesClient({
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{e.role ?? "—"}</td>
+                  <td className="px-4 py-3 text-slate-600">
+                    {e.role ? titleCase(e.role) : "—"}
+                  </td>
                   <td className="px-4 py-3 text-slate-600">
                     {e.email ?? (
                       <span className="text-amber-700">no email</span>
@@ -132,7 +135,7 @@ export default function EmployeesClient({
                   <td className="px-4 py-3">
                     <Button variant="ghost" onClick={() => setTimeOffFor(e)}>
                       {e.time_off.length
-                        ? `${e.time_off.length} range${e.time_off.length === 1 ? "" : "s"}`
+                        ? summarizeTimeOff(e.time_off)
                         : "Add"}
                     </Button>
                   </td>
@@ -370,7 +373,7 @@ function TimeOffModal({
                 className="flex items-center justify-between px-3 py-2"
               >
                 <span>
-                  {t.start_date} → {t.end_date}
+                  {formatShortDate(t.start_date)} → {formatShortDate(t.end_date)}
                   {t.reason ? ` (${t.reason})` : ""}
                 </span>
                 <Button

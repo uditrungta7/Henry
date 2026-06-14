@@ -13,7 +13,7 @@ export default async function AppLayout({
 
   return (
     <div className="flex min-h-screen">
-      <aside className="flex w-60 flex-col justify-between border-r border-slate-200 bg-white p-4">
+      <aside className="sticky top-0 flex h-screen w-60 flex-col justify-between border-r border-slate-200 bg-white p-4">
         <div>
           <div className="mb-6 px-3">
             <div className="text-xl font-bold">{company.name}</div>
