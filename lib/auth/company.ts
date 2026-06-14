@@ -57,3 +57,28 @@ export async function requireActiveCompany(): Promise<Company> {
   if (!state.allowed) redirect("/trial-ended");
   return state.company;
 }
+
+// For SERVER ACTIONS and API routes: resolve the caller's company AND enforce
+// the license, returning a result rather than redirecting (actions can't
+// redirect cleanly). Use this at the top of every mutating action so an
+// expired-trial company can't change data by calling the action directly.
+export async function requireLicensedCompany(): Promise<
+  { companyId: string; company: Company } | { error: string }
+> {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Please sign in again." };
+
+  const { data: company } = await supabase
+    .from("companies")
+    .select("id, name, trial_ends_at, is_licensed, customer_email_enabled")
+    .single();
+  if (!company) return { error: "No company found." };
+
+  if (!isLicenseActive(company)) {
+    return { error: "Your trial has ended. Contact us to continue." };
+  }
+  return { companyId: company.id, company };
+}

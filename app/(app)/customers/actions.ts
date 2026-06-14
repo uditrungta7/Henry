@@ -2,10 +2,12 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireLicensedCompany } from "@/lib/auth/company";
 
 // All writes go through the RLS-enforced session client, so a row can only be
 // created or changed within the logged-in user's company. We never set
 // company_id from the client; the DB default + RLS check handle scoping.
+// Every mutating action gates the license via requireLicensedCompany().
 
 export type CustomerInput = {
   name: string;
@@ -19,18 +21,13 @@ export type CustomerInput = {
   notify_email: boolean;
 };
 
-async function companyId() {
-  const supabase = createClient();
-  const { data } = await supabase.from("app_users").select("company_id").single();
-  return { supabase, companyId: data?.company_id as string | undefined };
-}
-
 export async function saveCustomer(
   id: string | null,
   input: CustomerInput
 ): Promise<{ error?: string }> {
-  const { supabase, companyId: cid } = await companyId();
-  if (!cid) return { error: "No company found." };
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
+  const supabase = createClient();
 
   if (id) {
     const { error } = await supabase.from("customers").update(input).eq("id", id);
@@ -38,7 +35,7 @@ export async function saveCustomer(
   } else {
     const { error } = await supabase
       .from("customers")
-      .insert({ ...input, company_id: cid });
+      .insert({ ...input, company_id: gate.companyId });
     if (error) return { error: error.message };
   }
   revalidatePath("/customers");
@@ -46,6 +43,8 @@ export async function saveCustomer(
 }
 
 export async function setCustomerActive(id: string, isActive: boolean) {
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
   const supabase = createClient();
   const { error } = await supabase
     .from("customers")

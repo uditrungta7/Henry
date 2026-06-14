@@ -4,6 +4,9 @@ import { useEffect } from "react";
 
 // Small shared UI primitives so the data screens look consistent and stay simple.
 
+// Shared focus ring for keyboard users (accessibility).
+const FOCUS = "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1";
+
 export function Button({
   variant = "primary",
   className = "",
@@ -12,7 +15,7 @@ export function Button({
   variant?: "primary" | "secondary" | "danger" | "ghost";
 }) {
   const styles = {
-    primary: "bg-blue-600 text-white hover:bg-blue-700",
+    primary: "bg-blue-700 text-white hover:bg-blue-800",
     secondary: "border border-slate-300 bg-white text-slate-800 hover:bg-slate-50",
     danger: "bg-red-600 text-white hover:bg-red-700",
     ghost: "text-slate-600 hover:bg-slate-100",
@@ -20,7 +23,7 @@ export function Button({
   return (
     <button
       {...props}
-      className={`rounded-lg px-4 py-2 font-semibold disabled:opacity-60 ${styles} ${className}`}
+      className={`rounded-lg px-4 py-2 font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${FOCUS} ${styles} ${className}`}
     />
   );
 }
@@ -44,7 +47,7 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${FOCUS} disabled:bg-slate-100 disabled:text-slate-400 ${props.className ?? ""}`}
     />
   );
 }
@@ -53,9 +56,50 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
   return (
     <select
       {...props}
-      className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${props.className ?? ""}`}
+      className={`w-full rounded-lg border border-slate-300 px-3 py-2 ${FOCUS} disabled:bg-slate-100 disabled:text-slate-400 ${props.className ?? ""}`}
     />
   );
+}
+
+// Status pill, shared across publish results and history.
+const BADGE_STYLES: Record<string, string> = {
+  sent: "bg-green-100 text-green-800",
+  unchanged: "bg-slate-100 text-slate-600",
+  skipped: "bg-amber-100 text-amber-800",
+  failed: "bg-red-100 text-red-800",
+  queued: "bg-slate-100 text-slate-600",
+  draft: "bg-slate-100 text-slate-600",
+};
+
+export function StatusBadge({
+  tone,
+  children,
+}: {
+  tone: keyof typeof BADGE_STYLES | string;
+  children: React.ReactNode;
+}) {
+  const style = BADGE_STYLES[tone] ?? BADGE_STYLES.queued;
+  return (
+    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${style}`}>
+      {children}
+    </span>
+  );
+}
+
+// Inline message block (error/info/warning).
+export function Alert({
+  tone = "error",
+  children,
+}: {
+  tone?: "error" | "info" | "warning";
+  children: React.ReactNode;
+}) {
+  const style = {
+    error: "bg-red-50 text-red-700",
+    info: "bg-blue-50 text-blue-800",
+    warning: "bg-amber-50 text-amber-800",
+  }[tone];
+  return <p className={`rounded-lg px-3 py-2 ${style}`}>{children}</p>;
 }
 
 export function Modal({
@@ -75,7 +119,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm"
       onClick={onClose}
     >
       <div

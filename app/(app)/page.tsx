@@ -14,7 +14,7 @@ export default async function SchedulePage({
 }: {
   searchParams: { date?: string; view?: string };
 }) {
-  await requireActiveCompany();
+  const company = await requireActiveCompany();
   const supabase = createClient();
 
   const date = searchParams.date ?? isoToday();
@@ -38,7 +38,7 @@ export default async function SchedulePage({
       .order("name"),
     supabase
       .from("employees")
-      .select("id, name, color, email")
+      .select("id, name, color, email, phone")
       .eq("is_active", true)
       .order("name"),
     supabase
@@ -59,6 +59,7 @@ export default async function SchedulePage({
       date={date}
       view={view}
       days={days}
+      companyName={company.name}
       customers={(customers ?? []) as BoardCustomer[]}
       employees={(employees ?? []) as BoardEmployee[]}
       assignments={(assignments ?? []) as BoardAssignment[]}

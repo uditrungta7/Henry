@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { requireActiveCompany } from "@/lib/auth/company";
+import { isoToday } from "@/lib/dates";
 import EmployeesClient, { type Employee } from "./EmployeesClient";
 
 export default async function EmployeesPage() {
@@ -15,8 +16,7 @@ export default async function EmployeesPage() {
     // Soonest leave first, in both the table cell and the modal list.
     .order("start_date", { referencedTable: "employee_time_off", ascending: true });
 
-  const today = new Date().toISOString().slice(0, 10);
   return (
-    <EmployeesClient employees={(data ?? []) as Employee[]} today={today} />
+    <EmployeesClient employees={(data ?? []) as Employee[]} today={isoToday()} />
   );
 }

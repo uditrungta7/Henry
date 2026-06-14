@@ -20,8 +20,14 @@ export default function LoginPage() {
   const [state, formAction] = useFormState(login, null);
 
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-sm">
+    <main className="flex min-h-screen items-center justify-center bg-slate-100 p-6">
+      <div className="w-full max-w-sm rounded-2xl bg-white p-8 shadow-md">
+        <div className="mb-6 flex items-center gap-2">
+          <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-700 text-lg font-bold text-white">
+            H
+          </span>
+          <span className="text-xl font-bold tracking-tight">Henry</span>
+        </div>
         <h1 className="mb-1 text-2xl font-bold">Welcome back</h1>
         <p className="mb-6 text-slate-600">Sign in to manage your schedule.</p>
 

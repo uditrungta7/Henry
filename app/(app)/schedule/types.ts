@@ -14,6 +14,7 @@ export type BoardEmployee = {
   name: string;
   color: string;
   email: string | null;
+  phone: string | null;
 };
 
 export type BoardAssignment = {

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui";
+import { Button, StatusBadge } from "@/components/ui";
 import { formatDayLabel } from "@/lib/dates";
 import { resendEmail } from "../schedule/publish";
 
@@ -112,7 +112,7 @@ function EmailRow({ email }: { email: EmailRecord }) {
         )}
       </span>
       <span className="flex items-center gap-2">
-        {email.status === "failed" && (
+        {email.to_email && (
           <Button
             variant="secondary"
             disabled={pending}
@@ -123,25 +123,13 @@ function EmailRow({ email }: { email: EmailRecord }) {
               })
             }
           >
-            Resend
+            {email.status === "failed" ? "Resend" : "Send again"}
           </Button>
         )}
-        <StatusBadge status={email.status} />
+        <StatusBadge tone={email.status}>
+          {{ sent: "Sent", failed: "Failed", queued: "Queued" }[email.status]}
+        </StatusBadge>
       </span>
     </li>
-  );
-}
-
-function StatusBadge({ status }: { status: EmailRecord["status"] }) {
-  const map = {
-    sent: "bg-green-100 text-green-800",
-    failed: "bg-red-100 text-red-800",
-    queued: "bg-slate-100 text-slate-600",
-  }[status];
-  const label = { sent: "Sent", failed: "Failed", queued: "Queued" }[status];
-  return (
-    <span className={`rounded px-2 py-0.5 text-xs font-medium ${map}`}>
-      {label}
-    </span>
   );
 }

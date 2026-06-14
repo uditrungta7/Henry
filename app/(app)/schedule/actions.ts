@@ -2,26 +2,36 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { requireLicensedCompany } from "@/lib/auth/company";
 import { weekDays, addDays } from "@/lib/dates";
 
 // All writes go through the RLS-enforced session client. Double-booking is
 // enforced by the DB unique (company_id, employee_id, work_date, shift); we
 // translate the unique-violation (Postgres 23505) into a readable message.
+// Every mutating action gates the license via requireLicensedCompany().
 
 type Shift = "AM" | "PM";
 type ActionResult = { error?: string };
 
 const DOUBLE_BOOK = "That employee is already booked for that shift this day.";
 
-async function companyId() {
-  const supabase = createClient();
-  const { data } = await supabase.from("app_users").select("company_id").single();
-  return { supabase, companyId: data?.company_id as string | undefined };
-}
-
 function describe(error: { code?: string; message: string }): string {
   if (error.code === "23505") return DOUBLE_BOOK;
   return error.message;
+}
+
+// Confirm a customer id belongs to the caller's company (RLS-scoped read).
+// Guards against a crafted/cross-company id corrupting an assignment's FK.
+async function customerInCompany(
+  supabase: ReturnType<typeof createClient>,
+  customerId: string
+): Promise<boolean> {
+  const { data } = await supabase
+    .from("customers")
+    .select("id")
+    .eq("id", customerId)
+    .maybeSingle();
+  return !!data;
 }
 
 export async function assign(
@@ -30,11 +40,16 @@ export async function assign(
   workDate: string,
   shift: Shift
 ): Promise<ActionResult> {
-  const { supabase, companyId: cid } = await companyId();
-  if (!cid) return { error: "No company found." };
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
+  const supabase = createClient();
+
+  if (!(await customerInCompany(supabase, customerId))) {
+    return { error: "That site is no longer available." };
+  }
 
   const { error } = await supabase.from("assignments").insert({
-    company_id: cid,
+    company_id: gate.companyId,
     customer_id: customerId,
     employee_id: employeeId,
     work_date: workDate,
@@ -46,6 +61,8 @@ export async function assign(
 }
 
 export async function unassign(assignmentId: string): Promise<ActionResult> {
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
   const supabase = createClient();
   const { error } = await supabase
     .from("assignments")
@@ -64,7 +81,13 @@ export async function move(
   targetShift: Shift,
   targetAssignmentId: string | null
 ): Promise<ActionResult> {
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
   const supabase = createClient();
+
+  if (!(await customerInCompany(supabase, targetCustomerId))) {
+    return { error: "That site is no longer available." };
+  }
 
   const { data: moving } = await supabase
     .from("assignments")
@@ -106,6 +129,8 @@ export async function setNotes(
   assignmentId: string,
   notes: string | null
 ): Promise<ActionResult> {
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
   const supabase = createClient();
   const { error } = await supabase
     .from("assignments")
@@ -121,8 +146,10 @@ export async function setNotes(
 export async function copyWeek(
   anyDateInWeek: string
 ): Promise<ActionResult & { copied?: number; skipped?: number }> {
-  const { supabase, companyId: cid } = await companyId();
-  if (!cid) return { error: "No company found." };
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
+  const supabase = createClient();
+  const cid = gate.companyId;
 
   const days = weekDays(anyDateInWeek);
   const first = days[0];

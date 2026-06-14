@@ -79,3 +79,50 @@ export function buildBody(opts: {
   // Blank line between blocks; trailing newline for a clean plain-text email.
   return blocks.join("\n\n") + "\n";
 }
+
+// ---- Customer-facing email (optional "also email this customer" feature) ----
+// A plain-text note to a customer telling them who is coming to THEIR site and
+// when, for the day. Only the customer's own site is referenced.
+
+export type CustomerShiftLine = {
+  shift: Shift;
+  employeeName: string;
+  notes: string | null;
+};
+
+export function buildCustomerSubject(
+  companyName: string,
+  dateIso: string
+): string {
+  return `${companyName} crew for ${emailDateLabel(dateIso)}`;
+}
+
+export function buildCustomerBody(opts: {
+  companyName: string;
+  customerName: string;
+  dateIso: string;
+  preface: string | null;
+  shifts: CustomerShiftLine[]; // for this customer's site, AM before PM
+}): string {
+  const blocks: string[] = [];
+
+  const preface = opts.preface?.trim();
+  if (preface) blocks.push(preface);
+
+  blocks.push(
+    `${opts.companyName} crew scheduled for ${opts.customerName} on ${emailDateLabel(opts.dateIso)}:`
+  );
+
+  const shiftText = opts.shifts
+    .slice()
+    .sort((a, b) => (a.shift === "AM" ? 0 : 1) - (b.shift === "AM" ? 0 : 1))
+    .map((s) => {
+      let text = `${s.shift}: ${s.employeeName}`;
+      if (s.notes) text += ` (${s.notes})`;
+      return text;
+    })
+    .join("\n");
+  if (shiftText) blocks.push(shiftText);
+
+  return blocks.join("\n\n") + "\n";
+}

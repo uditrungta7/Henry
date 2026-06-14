@@ -15,7 +15,7 @@ import { Button, Modal, Field, Input } from "@/components/ui";
 import { addDays, formatDayLabel, weekdayShort, monthDayShort } from "@/lib/dates";
 import { assign, unassign, move, setNotes, copyWeek } from "./actions";
 import { onTimeOff, customerClosed } from "./warnings";
-import PublishPanel from "./PublishPanel";
+import PublishPanel, { type PreviewEmployee } from "./PublishPanel";
 import type {
   BoardCustomer,
   BoardEmployee,
@@ -24,12 +24,48 @@ import type {
   Shift,
 } from "./types";
 
+// Shift lines per assigned employee for the day, for the publish email preview.
+function buildPreviewEmployees(
+  date: string,
+  employees: BoardEmployee[],
+  customers: BoardCustomer[],
+  assignments: BoardAssignment[]
+): PreviewEmployee[] {
+  const custById = new Map(customers.map((c) => [c.id, c]));
+  const dayAssignments = assignments.filter((a) => a.work_date === date);
+  const byEmployee = new Map<string, PreviewEmployee>();
+
+  for (const emp of employees) {
+    const shifts = dayAssignments
+      .filter((a) => a.employee_id === emp.id)
+      .map((a) => {
+        const c = custById.get(a.customer_id);
+        return {
+          shift: a.shift,
+          customerName: c?.name ?? "Unknown",
+          address: c?.address ?? null,
+          notes: a.notes,
+        };
+      });
+    if (shifts.length > 0) {
+      byEmployee.set(emp.id, {
+        id: emp.id,
+        name: emp.name,
+        phone: emp.phone,
+        shifts,
+      });
+    }
+  }
+  return [...byEmployee.values()];
+}
+
 const SHIFTS: Shift[] = ["AM", "PM"];
 
 type Props = {
   date: string;
   view: "day" | "week";
   days: string[];
+  companyName: string;
   customers: BoardCustomer[];
   employees: BoardEmployee[];
   assignments: BoardAssignment[];
@@ -48,6 +84,7 @@ export default function Board({
   date,
   view,
   days,
+  companyName,
   customers,
   employees,
   assignments,
@@ -249,12 +286,19 @@ export default function Board({
       {publishOpen && (
         <PublishPanel
           date={date}
+          companyName={companyName}
           assignedEmployees={employees.filter((e) =>
             assignments.some(
               (a) => a.work_date === date && a.employee_id === e.id
             )
           )}
           allEmployees={employees}
+          previewEmployees={buildPreviewEmployees(
+            date,
+            employees,
+            customers,
+            assignments
+          )}
           onClose={() => setPublishOpen(false)}
         />
       )}

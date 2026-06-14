@@ -11,3 +11,6 @@ next-env.d.ts
 
 # Claude Code local session settings
 .claude/
+
+# TS incremental build info
+*.tsbuildinfo

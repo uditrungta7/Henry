@@ -16,8 +16,13 @@ export default async function AppLayout({
       <aside className="sticky top-0 flex h-screen w-60 flex-col justify-between border-r border-slate-200 bg-white p-4">
         <div>
           <div className="mb-6 px-3">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-700 text-sm font-bold text-white">
+                H
+              </span>
+              <span className="text-sm font-semibold text-slate-500">Henry</span>
+            </div>
             <div className="text-xl font-bold">{company.name}</div>
-            <div className="text-sm text-slate-500">Henry</div>
           </div>
           <Nav />
         </div>

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { requireLicensedCompany } from "@/lib/auth/company";
 import type { CustomerRecord, EmployeeRecord } from "@/lib/import/schema";
 
 // Upserts parsed customer/employee records into the logged-in user's company.
@@ -18,24 +19,13 @@ function preferIncoming<T>(incoming: T | null, existing: T | null): T | null {
 }
 
 export async function POST(request: Request) {
+  // Auth + company + license in one gate (blocks expired-trial companies too).
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) {
+    return NextResponse.json({ error: gate.error }, { status: 403 });
+  }
+  const companyId = gate.companyId;
   const supabase = createClient();
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
-  }
-
-  // company_id from the user's mapping (read through RLS).
-  const { data: appUser } = await supabase
-    .from("app_users")
-    .select("company_id")
-    .single();
-  if (!appUser) {
-    return NextResponse.json({ error: "No company found." }, { status: 403 });
-  }
-  const companyId = appUser.company_id as string;
 
   const body = (await request.json()) as Body;
 

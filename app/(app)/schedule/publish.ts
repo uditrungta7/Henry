@@ -1,18 +1,26 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { buildSubject, buildBody, type ShiftLine } from "@/lib/email/compose";
+import { requireLicensedCompany, type Company } from "@/lib/auth/company";
+import {
+  buildSubject,
+  buildBody,
+  buildCustomerSubject,
+  buildCustomerBody,
+  type ShiftLine,
+  type CustomerShiftLine,
+} from "@/lib/email/compose";
 import { sendPlainTextEmail } from "@/lib/email/send";
 
 export type RecipientResult = {
-  employeeId: string;
+  employeeId: string; // employee id, or customer id for customer notifications
   name: string;
   email: string | null;
   status: "sent" | "failed" | "skipped" | "unchanged";
   detail?: string;
   emailId?: string; // set on failed rows so the UI can offer a one-click resend
+  kind?: "employee" | "customer";
 };
 
 export type PublishResult = {
@@ -20,22 +28,14 @@ export type PublishResult = {
   results?: RecipientResult[];
 };
 
-// Resolve the caller's company through RLS (the user's session), so we never
-// trust a client-supplied company id. The actual send + writes use the admin
-// client (service role) but are ALWAYS scoped to this company_id explicitly.
-async function resolveCompany() {
-  const supabase = createClient();
-  const { data: appUser } = await supabase
-    .from("app_users")
-    .select("company_id")
-    .single();
-  if (!appUser) return null;
-
-  const { data: company } = await supabase
-    .from("companies")
-    .select("id, name")
-    .single();
-  return company ? { id: company.id as string, name: company.name as string } : null;
+// Resolve + license-gate the caller's company through RLS (the user's session),
+// so we never trust a client-supplied company id and an expired trial can't
+// publish. The actual send + writes use the admin client (service role) but are
+// ALWAYS scoped to this company_id explicitly.
+async function resolveCompany(): Promise<Company | { error: string }> {
+  const gate = await requireLicensedCompany();
+  if ("error" in gate) return { error: gate.error };
+  return gate.company;
 }
 
 export async function publishDay(
@@ -44,7 +44,7 @@ export async function publishDay(
   onCallEmployeeId: string | null
 ): Promise<PublishResult> {
   const company = await resolveCompany();
-  if (!company) return { error: "No company found." };
+  if ("error" in company) return { error: company.error };
 
   const admin = createAdminClient();
   const companyId = company.id;
@@ -72,7 +72,7 @@ export async function publishDay(
       .in("id", employeeIds),
     admin
       .from("customers")
-      .select("id, name, address")
+      .select("id, name, address, email, notify_email")
       .eq("company_id", companyId)
       .in("id", customerIds),
   ]);
@@ -225,6 +225,79 @@ export async function publishDay(
     }
   }
 
+  // --- Optionally email customers who opted in ("also email this customer") ---
+  // Only when the company has the feature enabled. Each such customer gets a
+  // plain-text note listing who is coming to THEIR site that day.
+  if (company.customer_email_enabled) {
+    const custSubject = buildCustomerSubject(company.name, dateIso);
+    for (const cust of customers ?? []) {
+      if (!cust.notify_email) continue;
+
+      const custShifts: CustomerShiftLine[] = assignments
+        .filter((a) => a.customer_id === cust.id)
+        .map((a) => ({
+          shift: a.shift as "AM" | "PM",
+          employeeName: empById.get(a.employee_id)?.name ?? "Unknown",
+          notes: a.notes,
+        }));
+      if (custShifts.length === 0) continue; // nothing at their site today
+
+      if (!cust.email) {
+        results.push({
+          employeeId: cust.id,
+          name: cust.name,
+          email: null,
+          status: "skipped",
+          detail: "Customer has no email",
+          kind: "customer",
+        });
+        continue;
+      }
+
+      const custBody = buildCustomerBody({
+        companyName: company.name,
+        customerName: cust.name,
+        dateIso,
+        preface,
+        shifts: custShifts,
+      });
+
+      const custSend = await sendPlainTextEmail({
+        to: cust.email,
+        subject: custSubject,
+        text: custBody,
+        fromName: company.name,
+      });
+
+      const { data: custEmailRow } = await admin
+        .from("emails")
+        .insert({
+          company_id: companyId,
+          publish_id: publishRow.id,
+          employee_id: null, // customer recipient
+          to_email: cust.email,
+          subject: custSubject,
+          body: custBody,
+          status: custSend.ok ? "sent" : "failed",
+          provider_message_id: custSend.ok ? custSend.providerMessageId : null,
+          error: custSend.ok ? null : custSend.error,
+        })
+        .select("id")
+        .single();
+
+      results.push({
+        employeeId: cust.id,
+        name: cust.name,
+        email: cust.email,
+        status: custSend.ok ? "sent" : "failed",
+        detail: custSend.ok ? "Customer notified" : custSend.error,
+        emailId: custSend.ok ? undefined : custEmailRow?.id,
+        kind: "customer",
+      });
+      if (custSend.ok) sentCount++;
+    }
+  }
+
   // Flip this day's assignments to published.
   await admin
     .from("assignments")
@@ -241,10 +314,11 @@ export async function publishDay(
   return { results };
 }
 
-// Resend a single failed email by its emails-row id (one-click resend).
+// Resend a single email by its emails-row id (one-click resend; works for any
+// recorded email — failed or already sent).
 export async function resendEmail(emailId: string): Promise<{ error?: string }> {
   const company = await resolveCompany();
-  if (!company) return { error: "No company found." };
+  if ("error" in company) return { error: company.error };
   const admin = createAdminClient();
 
   const { data: row } = await admin

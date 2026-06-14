@@ -2,7 +2,9 @@
 // and local date parts so the day never shifts across timezones.
 
 export function isoToday(): string {
-  return new Date().toISOString().slice(0, 10);
+  // Local date parts — NOT toISOString(), which is UTC and shifts the day for
+  // non-UTC users near midnight (the whole module works in local parts).
+  return toIso(new Date());
 }
 
 export function addDays(iso: string, days: number): string {
