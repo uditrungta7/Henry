@@ -186,6 +186,7 @@ export async function publishDay(
       to: emp.email,
       subject,
       text: body,
+      fromName: company.name,
     });
 
     const { data: emailRow } = await admin
@@ -258,6 +259,7 @@ export async function resendEmail(emailId: string): Promise<{ error?: string }> 
     to: row.to_email,
     subject: row.subject ?? "",
     text: row.body ?? "",
+    fromName: company.name,
   });
 
   await admin

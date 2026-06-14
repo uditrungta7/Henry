@@ -5,17 +5,30 @@ export type SendResult =
   | { ok: true; providerMessageId: string }
   | { ok: false; error: string };
 
+// Extract the bare address from an EMAIL_FROM that may be "Name <addr>" or "addr".
+function fromAddress(value: string): string {
+  const m = value.match(/<([^>]+)>/);
+  return (m ? m[1] : value).trim();
+}
+
 export async function sendPlainTextEmail(opts: {
   to: string;
   subject: string;
   text: string;
+  // Display name for the sender (e.g. the company name). The address always
+  // comes from EMAIL_FROM — our one verified sender — so deliverability holds.
+  fromName?: string;
 }): Promise<SendResult> {
   const apiKey = process.env.EMAIL_API_KEY;
-  const from = process.env.EMAIL_FROM;
+  const configuredFrom = process.env.EMAIL_FROM;
 
-  if (!apiKey || !from) {
+  if (!apiKey || !configuredFrom) {
     return { ok: false, error: "Email is not configured on the server." };
   }
+
+  const from = opts.fromName
+    ? `${opts.fromName} <${fromAddress(configuredFrom)}>`
+    : configuredFrom;
 
   try {
     const res = await fetch("https://api.resend.com/emails", {
