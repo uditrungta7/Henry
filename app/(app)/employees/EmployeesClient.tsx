@@ -2,7 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Modal } from "@/components/ui";
-import { titleCase, summarizeTimeOff, formatShortDate } from "@/lib/format";
+import {
+  titleCase,
+  summarizeTimeOff,
+  formatRange,
+  isPastRange,
+} from "@/lib/format";
 import {
   saveEmployee,
   setEmployeeActive,
@@ -175,6 +180,7 @@ export default function EmployeesClient({
       {timeOffFor && (
         <TimeOffModal
           employee={timeOffFor}
+          today={today}
           onClose={() => setTimeOffFor(null)}
         />
       )}
@@ -334,9 +340,11 @@ function EmployeeForm({
 
 function TimeOffModal({
   employee,
+  today,
   onClose,
 }: {
   employee: Employee;
+  today: string;
   onClose: () => void;
 }) {
   const [start, setStart] = useState("");
@@ -344,6 +352,11 @@ function TimeOffModal({
   const [reason, setReason] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [showPast, setShowPast] = useState(false);
+
+  // Query gives ascending order; split into past vs upcoming/in-progress.
+  const upcoming = employee.time_off.filter((t) => !isPastRange(t, today));
+  const past = employee.time_off.filter((t) => isPastRange(t, today));
 
   async function add(e: React.FormEvent) {
     e.preventDefault();
@@ -367,33 +380,58 @@ function TimeOffModal({
   return (
     <Modal title={`Time off — ${employee.name}`} onClose={onClose}>
       <div className="space-y-4">
-        {employee.time_off.length > 0 ? (
-          <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-            {employee.time_off.map((t) => (
-              <li
-                key={t.id}
-                className="flex items-center justify-between px-3 py-2"
-              >
-                <span>
-                  {formatShortDate(t.start_date)} → {formatShortDate(t.end_date)}
-                  {t.reason ? ` (${t.reason})` : ""}
-                </span>
-                <Button
-                  variant="ghost"
-                  onClick={async () => {
+        {employee.time_off.length === 0 && (
+          <p className="text-slate-500">No time off recorded.</p>
+        )}
+
+        {upcoming.length > 0 && (
+          <div>
+            <h3 className="mb-1 text-sm font-medium text-slate-500">Upcoming</h3>
+            <ul className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+              {upcoming.map((t) => (
+                <TimeOffRow
+                  key={t.id}
+                  range={t}
+                  today={today}
+                  busy={busy}
+                  onRemove={async () => {
                     setBusy(true);
                     await removeTimeOff(t.id);
                     setBusy(false);
                   }}
-                  disabled={busy}
-                >
-                  Remove
-                </Button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="text-slate-500">No time off recorded.</p>
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {past.length > 0 && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setShowPast((v) => !v)}
+              className="text-sm text-slate-500 underline hover:text-slate-800"
+            >
+              {showPast ? "Hide past" : `Show past (${past.length})`}
+            </button>
+            {showPast && (
+              <ul className="mt-1 divide-y divide-slate-100 rounded-lg border border-slate-200">
+                {past.map((t) => (
+                  <TimeOffRow
+                    key={t.id}
+                    range={t}
+                    today={today}
+                    busy={busy}
+                    onRemove={async () => {
+                      setBusy(true);
+                      await removeTimeOff(t.id);
+                      setBusy(false);
+                    }}
+                  />
+                ))}
+              </ul>
+            )}
+          </div>
         )}
 
         <form onSubmit={add} className="space-y-3 border-t border-slate-100 pt-4">
@@ -435,5 +473,29 @@ function TimeOffModal({
         </div>
       </div>
     </Modal>
+  );
+}
+
+function TimeOffRow({
+  range,
+  today,
+  busy,
+  onRemove,
+}: {
+  range: TimeOff;
+  today: string;
+  busy: boolean;
+  onRemove: () => void;
+}) {
+  return (
+    <li className="flex items-center justify-between px-3 py-2">
+      <span>
+        {formatRange(range.start_date, range.end_date, today)}
+        {range.reason ? ` (${range.reason})` : ""}
+      </span>
+      <Button variant="ghost" onClick={onRemove} disabled={busy}>
+        Remove
+      </Button>
+    </li>
   );
 }
