@@ -1,8 +1,22 @@
-export default function Page() {
+import { createClient } from "@/lib/supabase/server";
+import { requireActiveCompany } from "@/lib/auth/company";
+import CustomersClient, { type Customer } from "./CustomersClient";
+
+export default async function CustomersPage() {
+  const company = await requireActiveCompany();
+  const supabase = createClient();
+
+  const { data } = await supabase
+    .from("customers")
+    .select(
+      "id, name, address, contact_name, phone, open_start, open_end, color, notes, notify_email, is_active"
+    )
+    .order("name");
+
   return (
-    <div>
-      <h1 className="text-3xl font-bold">Customers</h1>
-      <p className="mt-2 text-slate-600">Coming soon.</p>
-    </div>
+    <CustomersClient
+      customers={(data ?? []) as Customer[]}
+      customerEmailEnabled={company.customer_email_enabled}
+    />
   );
 }
