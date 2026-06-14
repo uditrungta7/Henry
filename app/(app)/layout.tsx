@@ -1,6 +1,7 @@
 import { requireActiveCompany } from "@/lib/auth/company";
 import { signOut } from "@/app/actions";
 import Nav from "@/components/Nav";
+import { LogoMark } from "@/components/Logo";
 
 // Gates the entire app: requires a logged-in user with an active license.
 // A blocked company is redirected to /trial-ended before any page renders.
@@ -17,9 +18,7 @@ export default async function AppLayout({
         <div>
           <div className="mb-6 px-3">
             <div className="mb-2 flex items-center gap-2">
-              <span className="flex h-7 w-7 items-center justify-center rounded-md bg-blue-700 text-sm font-bold text-white">
-                H
-              </span>
+              <LogoMark size={28} />
               <span className="text-sm font-semibold text-slate-500">Henry</span>
             </div>
             <div className="text-xl font-bold">{company.name}</div>
