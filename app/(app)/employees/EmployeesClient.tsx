@@ -114,19 +114,19 @@ export default function EmployeesClient({
           <table className="w-full text-left">
             <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">EID</th>
-                <th className="px-4 py-3 font-medium">Role</th>
-                <th className="px-4 py-3 font-medium">City, State</th>
-                <th className="px-4 py-3 font-medium">Email</th>
-                <th className="px-4 py-3 font-medium">Time off</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">EID</th>
+                <th className="px-4 py-2 font-medium">Role</th>
+                <th className="px-4 py-2 font-medium">City, State</th>
+                <th className="px-4 py-2 font-medium">Email</th>
+                <th className="px-4 py-2 font-medium">Time off</th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((e) => (
                 <tr key={e.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">
                     <span className="flex items-center gap-2">
                       <span
                         className="inline-block h-3 w-3 rounded-full"
@@ -140,33 +140,38 @@ export default function EmployeesClient({
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{e.eid ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-2 text-slate-600">{e.eid ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-600">
                     {e.role ? titleCase(e.role) : "—"}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-2 text-slate-600">
                     {[titleCase(e.city ?? ""), e.state ?? ""]
                       .filter(Boolean)
                       .join(", ") || "—"}
                   </td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-2 text-slate-600">
                     {e.email ?? (
                       <span className="text-amber-700">no email</span>
                     )}
                   </td>
-                  <td className="px-4 py-3">
-                    <Button variant="ghost" onClick={() => setTimeOffFor(e)}>
+                  <td className="px-4 py-2">
+                    <Button size="sm" variant="ghost" onClick={() => setTimeOffFor(e)}>
                       {e.time_off.length
                         ? summarizeTimeOff(e.time_off, today)
                         : "Add"}
                     </Button>
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="secondary" onClick={() => setEditing(e)}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setEditing(e)}
+                      >
                         Edit
                       </Button>
                       <Button
+                        size="sm"
                         variant="ghost"
                         disabled={pending}
                         onClick={async () => {

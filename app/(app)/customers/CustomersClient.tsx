@@ -91,16 +91,16 @@ export default function CustomersClient({
           <table className="w-full text-left">
             <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
               <tr>
-                <th className="px-4 py-3 font-medium">Name</th>
-                <th className="px-4 py-3 font-medium">Address</th>
-                <th className="px-4 py-3 font-medium">Hours</th>
-                <th className="px-4 py-3"></th>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Address</th>
+                <th className="px-4 py-2 font-medium">Hours</th>
+                <th className="px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
               {filtered.map((c) => (
                 <tr key={c.id} className="border-t border-slate-100">
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-2">
                     <span className="flex items-center gap-2">
                       <span
                         className="inline-block h-3 w-3 rounded-full"
@@ -109,18 +109,23 @@ export default function CustomersClient({
                       {c.name}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-600">{c.address ?? "—"}</td>
-                  <td className="px-4 py-3 text-slate-600">
+                  <td className="px-4 py-2 text-slate-600">{c.address ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-600">
                     {c.open_start && c.open_end
                       ? `${formatTime(c.open_start)}–${formatTime(c.open_end)}`
                       : "—"}
                   </td>
-                  <td className="px-4 py-3 text-right">
+                  <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-2">
-                      <Button variant="secondary" onClick={() => setEditing(c)}>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => setEditing(c)}
+                      >
                         Edit
                       </Button>
                       <Button
+                        size="sm"
                         variant="ghost"
                         disabled={pending}
                         onClick={async () => {
