@@ -110,7 +110,7 @@ export default function EmployeesClient({
           onAdd={() => setEditing("new")}
         />
       ) : (
-        <div className="max-h-[calc(100vh-12rem)] overflow-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[calc(100vh-16rem)] overflow-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left">
             <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
               <tr>
