@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition, useOptimistic } from "react";
+import { useState, useTransition, useOptimistic, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -14,7 +14,7 @@ import {
 import { Button, Modal, Field, Input } from "@/components/ui";
 import { addDays, formatDayLabel, weekdayShort, monthDayShort } from "@/lib/dates";
 import { assign, unassign, move, setNotes, copyWeek } from "./actions";
-import { onTimeOff, customerClosed } from "./warnings";
+import { onTimeOff, customerClosed, shiftPhaseNow, isAtWork } from "./warnings";
 import PublishPanel, { type PreviewEmployee } from "./PublishPanel";
 import type {
   BoardCustomer,
@@ -65,6 +65,7 @@ type Props = {
   date: string;
   view: "day" | "week";
   days: string[];
+  today: string;
   companyName: string;
   customers: BoardCustomer[];
   employees: BoardEmployee[];
@@ -129,6 +130,7 @@ export default function Board({
   date,
   view,
   days,
+  today,
   companyName,
   customers,
   employees,
@@ -153,6 +155,30 @@ export default function Board({
   );
 
   const empById = new Map(employees.map((e) => [e.id, e]));
+
+  // Current shift phase from the boss's local clock, set after mount to avoid a
+  // hydration mismatch. Until then nothing is treated as "at work" (safe).
+  const [phase, setPhase] = useState({ amActive: false, pmActive: false });
+  useEffect(() => {
+    setPhase(shiftPhaseNow(new Date()));
+  }, []);
+
+  // Is this assignment a published shift that's live/over today? If so it's
+  // guarded: changing it asks for confirmation.
+  function atWork(a: BoardAssignment): boolean {
+    return isAtWork(a, today, phase);
+  }
+
+  // Guard a change to an "at work" assignment behind a confirm dialog.
+  function confirmIfAtWork(a: BoardAssignment | undefined): boolean {
+    if (a && atWork(a)) {
+      const emp = empById.get(a.employee_id)?.name ?? "This person";
+      return window.confirm(
+        `${emp} is already working the ${a.shift} shift today. Change it anyway?`
+      );
+    }
+    return true;
+  }
 
   function navigate(nextDate: string, nextView: "day" | "week") {
     router.push(`/?date=${nextDate}&view=${nextView}`);
@@ -196,6 +222,8 @@ export default function Board({
   }
 
   function doUnassign(id: string) {
+    const a = assignments.find((x) => x.id === id);
+    if (!confirmIfAtWork(a)) return;
     run(() => unassign(id), { type: "remove", id });
   }
 
@@ -226,6 +254,8 @@ export default function Board({
 
     // Swap-on-drop happens within a single day; dnd cells carry their own date.
     const existing = assignmentAt(target.customerId, target.date, target.shift);
+    // Guard if either the dragged chip or the one it would displace is at work.
+    if (!confirmIfAtWork(moving) || !confirmIfAtWork(existing)) return;
     run(
       () =>
         move(
@@ -324,6 +354,7 @@ export default function Board({
                           day={date}
                           shift={shift}
                           assignment={assignmentAt(c.id, date, shift)}
+                          atWork={atWork}
                           employees={employees}
                           empById={empById}
                           timeOff={timeOff}
@@ -343,6 +374,7 @@ export default function Board({
                             shift,
                             assignment: assignmentAt(c.id, day, shift),
                           }))}
+                          atWork={atWork}
                           employees={employees}
                           empById={empById}
                           timeOff={timeOff}
@@ -475,6 +507,7 @@ function Cell({
   day,
   shift,
   assignment,
+  atWork,
   employees,
   empById,
   timeOff,
@@ -486,6 +519,7 @@ function Cell({
   day: string;
   shift: Shift;
   assignment: BoardAssignment | undefined;
+  atWork: (a: BoardAssignment) => boolean;
   employees: BoardEmployee[];
   empById: Map<string, BoardEmployee>;
   timeOff: TimeOff[];
@@ -510,6 +544,7 @@ function Cell({
           employee={empById.get(assignment.employee_id)}
           onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
           closed={closed}
+          atWork={atWork(assignment)}
           onUnassign={() => onUnassign(assignment.id)}
           onNotes={() => onNotes(assignment)}
         />
@@ -529,6 +564,7 @@ function WeekDayCell({
   customer,
   day,
   assignments,
+  atWork,
   employees,
   empById,
   timeOff,
@@ -538,6 +574,7 @@ function WeekDayCell({
   customer: BoardCustomer;
   day: string;
   assignments: { shift: Shift; assignment: BoardAssignment | undefined }[];
+  atWork: (a: BoardAssignment) => boolean;
   employees: BoardEmployee[];
   empById: Map<string, BoardEmployee>;
   timeOff: TimeOff[];
@@ -554,6 +591,7 @@ function WeekDayCell({
             day={day}
             shift={shift}
             assignment={assignment}
+            atWork={atWork}
             employees={employees}
             empById={empById}
             timeOff={timeOff}
@@ -571,6 +609,7 @@ function WeekShiftSlot({
   day,
   shift,
   assignment,
+  atWork,
   employees,
   empById,
   timeOff,
@@ -581,6 +620,7 @@ function WeekShiftSlot({
   day: string;
   shift: Shift;
   assignment: BoardAssignment | undefined;
+  atWork: (a: BoardAssignment) => boolean;
   employees: BoardEmployee[];
   empById: Map<string, BoardEmployee>;
   timeOff: TimeOff[];
@@ -605,6 +645,7 @@ function WeekShiftSlot({
           employee={empById.get(assignment.employee_id)}
           onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
           closed={closed}
+          atWork={atWork(assignment)}
           onUnassign={() => onUnassign(assignment.id)}
           onNotes={null}
         />
@@ -624,6 +665,7 @@ function AssignmentChip({
   employee,
   onTimeOff: isOff,
   closed,
+  atWork,
   onUnassign,
   onNotes,
 }: {
@@ -631,6 +673,7 @@ function AssignmentChip({
   employee: BoardEmployee | undefined;
   onTimeOff: boolean;
   closed: boolean;
+  atWork: boolean;
   onUnassign: () => void;
   onNotes: (() => void) | null;
 }) {
@@ -642,25 +685,31 @@ function AssignmentChip({
   // reaching the drag sensor so clicking Remove / Add note never starts a drag.
   const stopDrag = (e: React.PointerEvent) => e.stopPropagation();
 
+  const published = assignment.status === "published";
+  // At-work chips get a ring so they read as "locked in / don't touch".
+  const border = atWork
+    ? "border-slate-200 ring-2 ring-amber-300"
+    : published
+      ? "border-slate-200"
+      : "border-dashed border-slate-400";
+
   return (
     <div
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      title={atWork ? "Already working this shift today" : undefined}
       className={`cursor-grab rounded-lg border p-2 active:cursor-grabbing ${
         isDragging ? "opacity-50" : ""
-      } ${
-        assignment.status === "published"
-          ? "border-slate-200"
-          : "border-dashed border-slate-300"
-      }`}
+      } ${border}`}
       style={{
         backgroundColor: (employee?.color ?? "#64748b") + "22",
         borderLeft: `4px solid ${employee?.color ?? "#64748b"}`,
       }}
     >
       <div className="flex items-start justify-between gap-2">
-        <span className="text-left font-medium">
+        <span className="flex items-center gap-1 text-left font-medium">
+          {atWork && <span title="At work">🔒</span>}
           {employee?.name ?? "Unknown"}
         </span>
         <button
@@ -678,7 +727,15 @@ function AssignmentChip({
       )}
 
       <div className="mt-1 flex flex-wrap gap-1">
-        {assignment.status === "draft" && (
+        {atWork ? (
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+            at work
+          </span>
+        ) : published ? (
+          <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
+            sent
+          </span>
+        ) : (
           <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
             not sent
           </span>

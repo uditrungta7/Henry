@@ -68,7 +68,7 @@ export default function LoginPage() {
         </div>
 
         <p className="relative hidden text-sm text-blue-100 md:block">
-          Scheduling for small contractor teams.
+          Scheduling built for contractor teams.
         </p>
       </section>
 

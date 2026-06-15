@@ -1,4 +1,4 @@
-import type { BoardCustomer, Shift, TimeOff } from "./types";
+import type { BoardAssignment, BoardCustomer, Shift, TimeOff } from "./types";
 
 // Non-blocking warnings shown when a booking looks questionable. The boss can
 // still go ahead; these only flag, they never refuse.
@@ -36,4 +36,31 @@ export function customerClosed(
   }
   // PM: closed if they shut at or before noon.
   return end <= "12:00";
+}
+
+// Which shift, if any, is currently underway or already over TODAY. Used to
+// guard "people who are at / have been at work" from accidental edits.
+//  - Before noon: AM is current (in progress); PM hasn't started.
+//  - Noon or later: AM is over and PM is current; both count as "at work".
+export type ShiftPhase = {
+  amActive: boolean; // AM is current or past today
+  pmActive: boolean; // PM is current or past today
+};
+
+export function shiftPhaseNow(now: Date): ShiftPhase {
+  const afterNoon = now.getHours() >= 12;
+  return { amActive: true, pmActive: afterNoon };
+}
+
+// An assignment is "at work" (locked against accidental change) when it is
+// PUBLISHED, dated TODAY, and its shift is current or already past. These are
+// people actually out on the job — changing them is almost always a mistake.
+export function isAtWork(
+  assignment: Pick<BoardAssignment, "status" | "work_date" | "shift">,
+  today: string,
+  phase: ShiftPhase
+): boolean {
+  if (assignment.status !== "published") return false;
+  if (assignment.work_date !== today) return false;
+  return assignment.shift === "AM" ? phase.amActive : phase.pmActive;
 }

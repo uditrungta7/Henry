@@ -59,6 +59,7 @@ export default async function SchedulePage({
       date={date}
       view={view}
       days={days}
+      today={isoToday()}
       companyName={company.name}
       customers={(customers ?? []) as BoardCustomer[]}
       employees={(employees ?? []) as BoardEmployee[]}
