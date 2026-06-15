@@ -310,6 +310,30 @@ export async function publishDay(
     .update({ recipient_count: sentCount })
     .eq("id", publishRow.id);
 
+  // Snapshot this day's published state, so later unsent edits can be reverted.
+  await admin
+    .from("assignment_snapshots")
+    .delete()
+    .eq("company_id", companyId)
+    .eq("work_date", dateIso);
+  const { data: published } = await admin
+    .from("assignments")
+    .select("customer_id, employee_id, shift, notes")
+    .eq("company_id", companyId)
+    .eq("work_date", dateIso);
+  if (published && published.length > 0) {
+    await admin.from("assignment_snapshots").insert(
+      published.map((a) => ({
+        company_id: companyId,
+        work_date: dateIso,
+        customer_id: a.customer_id,
+        employee_id: a.employee_id,
+        shift: a.shift,
+        notes: a.notes,
+      }))
+    );
+  }
+
   revalidatePath("/");
   return { results };
 }
