@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { requireLicensedCompany } from "@/lib/auth/company";
+import { nextUnusedColor } from "@/lib/colors";
 import type { CustomerRecord, EmployeeRecord } from "@/lib/import/schema";
 
 // Upserts parsed customer/employee records into the logged-in user's company.
@@ -41,6 +42,8 @@ export async function POST(request: Request) {
   const customerByName = new Map(
     (existingCustomers ?? []).map((c) => [c.name.trim().toLowerCase(), c])
   );
+  // Track colors in use so new customers each get a distinct one.
+  const customerColors = (existingCustomers ?? []).map((c) => c.color);
 
   for (const rec of body.customers) {
     if (!rec.name.trim()) continue;
@@ -63,6 +66,9 @@ export async function POST(request: Request) {
       if (error) return fail(error.message);
       customersUpdated++;
     } else {
+      // Use the spreadsheet color if matched, else the next distinct color.
+      const color = rec.color ?? nextUnusedColor(customerColors);
+      customerColors.push(color);
       const { error } = await supabase.from("customers").insert({
         company_id: companyId,
         name: rec.name.trim(),
@@ -71,8 +77,7 @@ export async function POST(request: Request) {
         address: rec.address,
         open_start: rec.open_start,
         open_end: rec.open_end,
-        // Omit color when none parsed so the DB default applies.
-        ...(rec.color ? { color: rec.color } : {}),
+        color,
       });
       if (error) return fail(error.message);
       customersAdded++;
@@ -82,12 +87,14 @@ export async function POST(request: Request) {
   // ---- Employees: match on lower(name) + email within the company ----
   const { data: existingEmployees } = await supabase
     .from("employees")
-    .select("id, name, email, role, rating, phone, eid, city, state");
+    .select("id, name, email, role, rating, phone, eid, city, state, color");
   const employeeKey = (name: string, email: string | null) =>
     `${name.trim().toLowerCase()}|${(email ?? "").toLowerCase()}`;
   const employeeByKey = new Map(
     (existingEmployees ?? []).map((e) => [employeeKey(e.name, e.email), e])
   );
+  // Track colors in use so new employees each get a distinct one.
+  const employeeColors = (existingEmployees ?? []).map((e) => e.color);
 
   for (const rec of body.employees) {
     if (!rec.name.trim()) continue;
@@ -108,6 +115,8 @@ export async function POST(request: Request) {
       if (error) return fail(error.message);
       employeesUpdated++;
     } else {
+      const color = nextUnusedColor(employeeColors);
+      employeeColors.push(color);
       const { error } = await supabase.from("employees").insert({
         company_id: companyId,
         name: rec.name.trim(),
@@ -118,6 +127,7 @@ export async function POST(request: Request) {
         eid: rec.eid,
         city: rec.city,
         state: rec.state,
+        color,
       });
       if (error) return fail(error.message);
       employeesAdded++;
