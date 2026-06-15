@@ -343,8 +343,8 @@ export default function Board({
             </thead>
             <tbody>
               {customers.map((c) => (
-                <tr key={c.id} className="border-t border-slate-100 align-middle">
-                  <td className="sticky left-0 z-10 bg-white px-4 py-2">
+                <tr key={c.id} className="border-t border-slate-100 align-top">
+                  <td className="sticky left-0 z-10 bg-white px-4 py-3">
                     <span className="flex items-center gap-2 font-medium">
                       <span
                         className="inline-block h-3 w-3 shrink-0 rounded-full"
@@ -560,31 +560,26 @@ function Cell({
   return (
     <td
       ref={setNodeRef}
-      className={`px-3 py-2 align-middle ${isOver ? "bg-blue-50" : ""}`}
-      style={{ minWidth: 240, width: 280 }}
+      className={`px-4 py-3 ${isOver ? "bg-blue-50" : ""}`}
+      style={{ minWidth: 220 }}
     >
-      {/* Fixed min-height so chip cells and empty cells line up evenly. */}
-      <div className="flex min-h-[3.5rem] items-center">
-        <div className="w-full">
-          {assignment ? (
-            <AssignmentChip
-              assignment={assignment}
-              employee={empById.get(assignment.employee_id)}
-              onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
-              closed={closed}
-              atWork={atWork(assignment)}
-              onUnassign={() => onUnassign(assignment.id)}
-              onNotes={() => onNotes(assignment)}
-            />
-          ) : (
-            <AssignSelect
-              employees={employees}
-              onAssign={onAssign}
-              hint={closed ? "Site closed this shift" : null}
-            />
-          )}
-        </div>
-      </div>
+      {assignment ? (
+        <AssignmentChip
+          assignment={assignment}
+          employee={empById.get(assignment.employee_id)}
+          onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
+          closed={closed}
+          atWork={atWork(assignment)}
+          onUnassign={() => onUnassign(assignment.id)}
+          onNotes={() => onNotes(assignment)}
+        />
+      ) : (
+        <AssignSelect
+          employees={employees}
+          onAssign={onAssign}
+          hint={closed ? "Site closed this shift" : null}
+        />
+      )}
     </td>
   );
 }
