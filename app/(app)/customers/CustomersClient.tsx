@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { Button, Field, Input, Modal } from "@/components/ui";
 import { formatTime } from "@/lib/format";
+import { nextUnusedColor } from "@/lib/colors";
 import { saveCustomer, setCustomerActive, type CustomerInput } from "./actions";
 
 export type Customer = {
@@ -142,6 +143,7 @@ export default function CustomersClient({
       {editing && (
         <CustomerForm
           initial={editing === "new" ? null : editing}
+          defaultColor={nextUnusedColor(customers.map((c) => c.color))}
           customerEmailEnabled={customerEmailEnabled}
           onClose={() => setEditing(null)}
         />
@@ -180,10 +182,12 @@ function EmptyState({
 
 function CustomerForm({
   initial,
+  defaultColor,
   customerEmailEnabled,
   onClose,
 }: {
   initial: Customer | null;
+  defaultColor: string;
   customerEmailEnabled: boolean;
   onClose: () => void;
 }) {
@@ -200,7 +204,7 @@ function CustomerForm({
           notes: initial.notes,
           notify_email: initial.notify_email,
         }
-      : empty
+      : { ...empty, color: defaultColor }
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);

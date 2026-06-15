@@ -8,6 +8,7 @@ import {
   formatRange,
   isPastRange,
 } from "@/lib/format";
+import { nextUnusedColor } from "@/lib/colors";
 import {
   saveEmployee,
   setEmployeeActive,
@@ -188,6 +189,7 @@ export default function EmployeesClient({
       {editing && (
         <EmployeeForm
           initial={editing === "new" ? null : editing}
+          defaultColor={nextUnusedColor(employees.map((e) => e.color))}
           onClose={() => setEditing(null)}
         />
       )}
@@ -232,9 +234,11 @@ function EmptyState({
 
 function EmployeeForm({
   initial,
+  defaultColor,
   onClose,
 }: {
   initial: Employee | null;
+  defaultColor: string;
   onClose: () => void;
 }) {
   const [form, setForm] = useState<EmployeeInput>(
@@ -251,7 +255,7 @@ function EmployeeForm({
           color: initial.color,
           is_on_call: initial.is_on_call,
         }
-      : empty
+      : { ...empty, color: defaultColor }
   );
   const [error, setError] = useState("");
   const [saving, setSaving] = useState(false);
