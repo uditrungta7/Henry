@@ -718,6 +718,14 @@ function AssignmentChip({
       ? "border-slate-200"
       : "border-dashed border-slate-400";
 
+  // Status badges, right-aligned on the name line so they don't add height.
+  const badges: { label: string; cls: string }[] = [];
+  if (atWork) badges.push({ label: "at work", cls: "bg-amber-100 text-amber-800" });
+  else if (published) badges.push({ label: "sent", cls: "bg-green-100 text-green-800" });
+  else badges.push({ label: "not sent", cls: "bg-slate-100 text-slate-500" });
+  if (isOff) badges.push({ label: "time off", cls: "bg-amber-100 text-amber-800" });
+  if (closed) badges.push({ label: "closed", cls: "bg-amber-100 text-amber-800" });
+
   return (
     <div
       ref={setNodeRef}
@@ -732,56 +740,42 @@ function AssignmentChip({
         borderLeft: `4px solid ${employee?.color ?? "#64748b"}`,
       }}
     >
-      <div className="flex items-start justify-between gap-2">
-        <span className="flex items-center gap-1 text-left font-medium">
+      <div className="flex items-center gap-2">
+        <span className="flex min-w-0 items-center gap-1 font-medium">
           {atWork && <span title="At work">🔒</span>}
-          {employee?.name ?? "Unknown"}
+          <span className="truncate">{employee?.name ?? "Unknown"}</span>
         </span>
-        <button
-          onClick={onUnassign}
-          onPointerDown={stopDrag}
-          className="text-slate-400 hover:text-red-600"
-          title="Remove"
-        >
-          ✕
-        </button>
+        {/* Badges pushed to the right, on the same line as the name. */}
+        <span className="ml-auto flex shrink-0 items-center gap-1">
+          {badges.map((b) => (
+            <span
+              key={b.label}
+              className={`rounded px-1.5 py-0.5 text-xs font-medium ${b.cls}`}
+            >
+              {b.label}
+            </span>
+          ))}
+          <button
+            onClick={onUnassign}
+            onPointerDown={stopDrag}
+            className="text-slate-400 hover:text-red-600"
+            title="Remove"
+          >
+            ✕
+          </button>
+        </span>
       </div>
 
       {assignment.notes && (
-        <div className="mt-1 text-sm text-slate-600">{assignment.notes}</div>
+        <div className="mt-0.5 truncate text-sm text-slate-600">
+          {assignment.notes}
+        </div>
       )}
-
-      <div className="mt-1 flex flex-wrap gap-1">
-        {atWork ? (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
-            at work
-          </span>
-        ) : published ? (
-          <span className="rounded bg-green-100 px-1.5 py-0.5 text-xs font-medium text-green-800">
-            sent
-          </span>
-        ) : (
-          <span className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-500">
-            not sent
-          </span>
-        )}
-        {isOff && (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
-            on time off
-          </span>
-        )}
-        {closed && (
-          <span className="rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-800">
-            site closed
-          </span>
-        )}
-      </div>
-
       {onNotes && (
         <button
           onClick={onNotes}
           onPointerDown={stopDrag}
-          className="mt-1 text-xs text-blue-600 hover:underline"
+          className="mt-0.5 block text-xs text-blue-600 hover:underline"
         >
           {assignment.notes ? "Edit note" : "Add note"}
         </button>
