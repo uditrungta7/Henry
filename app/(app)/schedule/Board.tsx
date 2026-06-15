@@ -11,7 +11,7 @@ import {
   useSensors,
   type DragEndEvent,
 } from "@dnd-kit/core";
-import { Button, Modal, Field, Input } from "@/components/ui";
+import { Button, Modal, Field, Input, ConfirmDialog } from "@/components/ui";
 import { addDays, formatDayLabel, weekdayShort, monthDayShort } from "@/lib/dates";
 import { assign, unassign, move, setNotes, copyWeek } from "./actions";
 import { onTimeOff, customerClosed, shiftPhaseNow, isAtWork } from "./warnings";
@@ -142,6 +142,10 @@ export default function Board({
   const [error, setError] = useState("");
   const [notesFor, setNotesFor] = useState<BoardAssignment | null>(null);
   const [publishOpen, setPublishOpen] = useState(false);
+  const [confirm, setConfirm] = useState<{
+    message: string;
+    action: () => void;
+  } | null>(null);
 
   // Optimistic view of the assignments: updates instantly, reverts to server
   // data when the transition settles (so errors roll back automatically).
@@ -164,20 +168,27 @@ export default function Board({
   }, []);
 
   // Is this assignment a published shift that's live/over today? If so it's
-  // guarded: changing it asks for confirmation.
+  // guarded: changing it asks for confirmation via an in-app dialog.
   function atWork(a: BoardAssignment): boolean {
     return isAtWork(a, today, phase);
   }
 
-  // Guard a change to an "at work" assignment behind a confirm dialog.
-  function confirmIfAtWork(a: BoardAssignment | undefined): boolean {
-    if (a && atWork(a)) {
-      const emp = empById.get(a.employee_id)?.name ?? "This person";
-      return window.confirm(
-        `${emp} is already working the ${a.shift} shift today. Change it anyway?`
-      );
+  // If any involved assignment is "at work", show an in-app confirm and run the
+  // change only on confirm; otherwise run it straight away.
+  function guard(
+    involved: (BoardAssignment | undefined)[],
+    action: () => void
+  ) {
+    const locked = involved.find((a): a is BoardAssignment => !!a && atWork(a));
+    if (locked) {
+      const emp = empById.get(locked.employee_id)?.name ?? "This person";
+      setConfirm({
+        message: `${emp} is already working the ${locked.shift} shift today. Change it anyway?`,
+        action,
+      });
+      return;
     }
-    return true;
+    action();
   }
 
   function navigate(nextDate: string, nextView: "day" | "week") {
@@ -223,8 +234,7 @@ export default function Board({
 
   function doUnassign(id: string) {
     const a = assignments.find((x) => x.id === id);
-    if (!confirmIfAtWork(a)) return;
-    run(() => unassign(id), { type: "remove", id });
+    guard([a], () => run(() => unassign(id), { type: "remove", id }));
   }
 
   function assignmentAt(customerId: string, day: string, shift: Shift) {
@@ -255,22 +265,23 @@ export default function Board({
     // Swap-on-drop happens within a single day; dnd cells carry their own date.
     const existing = assignmentAt(target.customerId, target.date, target.shift);
     // Guard if either the dragged chip or the one it would displace is at work.
-    if (!confirmIfAtWork(moving) || !confirmIfAtWork(existing)) return;
-    run(
-      () =>
-        move(
-          assignmentId,
-          target.customerId,
-          target.shift,
-          existing?.id ?? null
-        ),
-      {
-        type: "move",
-        id: assignmentId,
-        toCustomerId: target.customerId,
-        toShift: target.shift,
-        swapWithId: existing?.id ?? null,
-      }
+    guard([moving, existing], () =>
+      run(
+        () =>
+          move(
+            assignmentId,
+            target.customerId,
+            target.shift,
+            existing?.id ?? null
+          ),
+        {
+          type: "move",
+          id: assignmentId,
+          toCustomerId: target.customerId,
+          toShift: target.shift,
+          swapWithId: existing?.id ?? null,
+        }
+      )
     );
   }
 
@@ -390,6 +401,20 @@ export default function Board({
           </table>
         </div>
       </DndContext>
+
+      {confirm && (
+        <ConfirmDialog
+          title="Already at work"
+          message={confirm.message}
+          confirmLabel="Change it anyway"
+          cancelLabel="Leave it"
+          onConfirm={() => {
+            confirm.action();
+            setConfirm(null);
+          }}
+          onCancel={() => setConfirm(null)}
+        />
+      )}
 
       {notesFor && (
         <NotesModal
