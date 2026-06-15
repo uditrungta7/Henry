@@ -13,8 +13,8 @@ export default async function AppLayout({
   const company = await requireActiveCompany();
 
   return (
-    <div className="flex min-h-screen">
-      <aside className="sticky top-0 flex h-screen w-60 flex-col justify-between border-r border-slate-200 bg-white p-4">
+    <div className="flex h-screen overflow-hidden">
+      <aside className="flex h-screen w-60 shrink-0 flex-col justify-between border-r border-slate-200 bg-white p-4">
         <div>
           <div className="mb-6 px-3">
             <div className="mb-2 flex items-center gap-2">
@@ -29,7 +29,7 @@ export default async function AppLayout({
           <SignOutButton />
         </div>
       </aside>
-      <main className="flex-1 p-8">{children}</main>
+      <main className="flex-1 overflow-y-auto p-8">{children}</main>
     </div>
   );
 }
