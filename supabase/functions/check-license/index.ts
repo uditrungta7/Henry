@@ -76,7 +76,9 @@ Deno.serve(async (req) => {
       .from("licenses")
       .update({
         last_seen_at: new Date().toISOString(),
-        company_name: existingName || companyHint,
+        // Prefer the latest name the machine sends; a blank hint keeps the
+        // existing name rather than wiping it.
+        company_name: companyHint || existingName,
         ...(resetPassword ? { reset_password: false } : {}),
       })
       .eq("id", licenseId);
