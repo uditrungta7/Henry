@@ -5,3 +5,18 @@
 body {
   @apply bg-slate-50 text-slate-900;
 }
+
+/* Wrong-password shake on the lock screen. Kept short and disabled for users
+   who prefer reduced motion. */
+@keyframes henry-shake {
+  10%, 90% { transform: translateX(-1px); }
+  20%, 80% { transform: translateX(2px); }
+  30%, 50%, 70% { transform: translateX(-5px); }
+  40%, 60% { transform: translateX(5px); }
+}
+.henry-shake {
+  animation: henry-shake 0.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .henry-shake { animation: none; }
+}

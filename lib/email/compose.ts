@@ -1,27 +1,32 @@
-// Builds the plain-text schedule email exactly per the brief. No HTML.
+// Builds the plain-text WEEKLY schedule email. No HTML.
 //
-// Subject: Your work schedule - Mon Jun 16
+// Every active employee gets their own individual email for the week:
+//   - their own shifts, day by day (or a "not scheduled" line),
+//   - then the full team plan for the week, so everyone knows who is where.
 //
-// Body:
-//   [preface message, if any]
+// Subject: Your work schedule - week of 06/15/2026
 //
-//   [Company name] schedule for Mon Jun 16:
-//
-//   AM: [Customer], [address] ([notes])
-//   PM: [Customer], [address] ([notes])
-//
-//   On call: [name] ([phone])
-//
-// Omission rules: drop the preface if empty; drop a shift line if unassigned;
-// drop the On call line if no one is on call.
+// Omission rules: drop the preface if empty; drop the On call line if no one is
+// on call. Must match the main-process copy in electron/email/compose.ts exactly
+// so previews equal what's sent.
 
 export type Shift = "AM" | "PM";
 
-export type ShiftLine = {
+// One of MY shifts in the week (for the personal section).
+export type WeekShiftLine = {
+  date: string; // ISO
   shift: Shift;
   customerName: string;
   address: string | null;
   notes: string | null;
+};
+
+// One assignment anywhere in the week (for the "who is where" section).
+export type TeamShiftLine = {
+  date: string; // ISO
+  shift: Shift;
+  customerName: string;
+  employeeName: string;
 };
 
 export type OnCall = {
@@ -29,80 +34,282 @@ export type OnCall = {
   phone: string | null;
 } | null;
 
-// "2026-06-16" -> "Mon Jun 16" (no comma, per the spec).
+// "2026-06-16" -> "Mon 06/16/2026" (USA numeric date with weekday).
 export function emailDateLabel(iso: string): string {
   const [y, m, d] = iso.split("-").map(Number);
-  const date = new Date(y, m - 1, d);
-  const weekday = date.toLocaleDateString("en-US", { weekday: "short" });
-  const month = date.toLocaleDateString("en-US", { month: "short" });
-  return `${weekday} ${month} ${d}`;
+  const weekday = new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    weekday: "short",
+  });
+  const [yy, mm, dd] = iso.split("-");
+  return `${weekday} ${mm}/${dd}/${yy}`;
 }
 
-export function buildSubject(dateIso: string): string {
-  return `Your work schedule - ${emailDateLabel(dateIso)}`;
+// "2026-06-15" -> "06/15/2026".
+function usDate(iso: string): string {
+  const [y, m, d] = iso.split("-");
+  return `${m}/${d}/${y}`;
 }
 
-function shiftLine(line: ShiftLine): string {
-  const parts = [line.customerName];
-  if (line.address) parts.push(line.address);
-  let text = `${line.shift}: ${parts.join(", ")}`;
-  if (line.notes) text += ` (${line.notes})`;
-  return text;
+export function buildWeekSubject(weekStartIso: string): string {
+  return `Your work schedule - week of ${usDate(weekStartIso)}`;
 }
 
-export function buildBody(opts: {
+const shiftLabel = (s: Shift) => (s === "AM" ? "MORNING" : "AFTERNOON");
+const shiftOrder = (s: Shift) => (s === "AM" ? 0 : 1);
+
+// The employee's own shifts, grouped by day:
+//   Mon 06/16/2026
+//   MORNING
+//     Acme Corp
+//     12 Main St
+//     Note: bring the tall ladder
+function myWeekBlock(shifts: WeekShiftLine[]): string {
+  const byDate = new Map<string, WeekShiftLine[]>();
+  for (const s of shifts) {
+    const list = byDate.get(s.date) ?? [];
+    list.push(s);
+    byDate.set(s.date, list);
+  }
+  const days = [...byDate.keys()].sort();
+  return days
+    .map((date) => {
+      const rows: string[] = [emailDateLabel(date)];
+      for (const s of byDate
+        .get(date)!
+        .slice()
+        .sort((a, b) => shiftOrder(a.shift) - shiftOrder(b.shift))) {
+        rows.push(shiftLabel(s.shift));
+        rows.push(`  ${s.customerName}`);
+        if (s.address) rows.push(`  ${s.address}`);
+        if (s.notes) rows.push(`  Note: ${s.notes}`);
+      }
+      return rows.join("\n");
+    })
+    .join("\n\n");
+}
+
+// The whole team's week, grouped by day then site:
+//   Mon 06/16/2026
+//     Acme Corp: AM Alice, PM Bob
+function teamWeekBlock(shifts: TeamShiftLine[]): string {
+  const byDate = new Map<string, TeamShiftLine[]>();
+  for (const s of shifts) {
+    const list = byDate.get(s.date) ?? [];
+    list.push(s);
+    byDate.set(s.date, list);
+  }
+  const days = [...byDate.keys()].sort();
+  return days
+    .map((date) => {
+      const rows: string[] = [emailDateLabel(date)];
+      const byCustomer = new Map<string, TeamShiftLine[]>();
+      for (const s of byDate.get(date)!) {
+        const list = byCustomer.get(s.customerName) ?? [];
+        list.push(s);
+        byCustomer.set(s.customerName, list);
+      }
+      for (const name of [...byCustomer.keys()].sort()) {
+        const parts = byCustomer
+          .get(name)!
+          .slice()
+          .sort((a, b) => shiftOrder(a.shift) - shiftOrder(b.shift))
+          .map((s) => `${s.shift} ${s.employeeName}`);
+        rows.push(`  ${name}: ${parts.join(", ")}`);
+      }
+      return rows.join("\n");
+    })
+    .join("\n\n");
+}
+
+export function buildWeekBody(opts: {
   companyName: string;
-  dateIso: string;
+  weekStartIso: string;
   preface: string | null;
-  shifts: ShiftLine[]; // already filtered to this employee, AM before PM
+  employeeName?: string | null;
+  myShifts: WeekShiftLine[]; // this employee's shifts in the week
+  teamShifts: TeamShiftLine[]; // every assignment in the week
   onCall: OnCall;
 }): string {
   const blocks: string[] = [];
 
+  const greetName = opts.employeeName?.trim();
+  if (greetName) blocks.push(`Hi ${greetName},`);
+
   const preface = opts.preface?.trim();
   if (preface) blocks.push(preface);
 
-  blocks.push(`${opts.companyName} schedule for ${emailDateLabel(opts.dateIso)}:`);
+  blocks.push(`Here is your schedule for the week of ${usDate(opts.weekStartIso)}:`);
 
-  const shiftText = opts.shifts
-    .slice()
-    .sort((a, b) => (a.shift === "AM" ? 0 : 1) - (b.shift === "AM" ? 0 : 1))
-    .map(shiftLine)
-    .join("\n");
-  if (shiftText) blocks.push(shiftText);
+  if (opts.myShifts.length > 0) {
+    blocks.push(myWeekBlock(opts.myShifts));
+  } else {
+    blocks.push("You are not scheduled to work this week.");
+  }
 
+  if (opts.teamShifts.length > 0) {
+    blocks.push("Where everyone is this week:");
+    blocks.push(teamWeekBlock(opts.teamShifts));
+  }
+
+  const footer: string[] = ["--"];
   if (opts.onCall) {
     const phone = opts.onCall.phone ? ` (${opts.onCall.phone})` : "";
-    blocks.push(`On call: ${opts.onCall.name}${phone}`);
+    footer.push(`On call: ${opts.onCall.name}${phone}`);
   }
+  footer.push(`- ${opts.companyName}`);
+  blocks.push(footer.join("\n"));
 
   // Blank line between blocks; trailing newline for a clean plain-text email.
   return blocks.join("\n\n") + "\n";
 }
 
+// ---- HTML version of the weekly email ---------------------------------------
+// Same content as buildWeekBody, laid out as tables so mail clients render it
+// cleanly. Inline styles only (clients strip <style> blocks). The plain-text
+// body stays canonical for the "unchanged, skip" comparison; this is layout.
+
+function esc(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+const TD = "padding:6px 10px;border:1px solid #e2e8f0;vertical-align:top;text-align:left;";
+const TH = TD + "background:#f1f5f9;font-weight:bold;";
+const TABLE = "border-collapse:collapse;margin:0 0 16px;width:100%;font-size:14px;";
+const P = "margin:0 0 12px;";
+
+const shiftWord = (s: Shift) => (s === "AM" ? "Morning" : "Afternoon");
+
+export function buildWeekHtml(opts: {
+  companyName: string;
+  weekStartIso: string;
+  preface: string | null;
+  employeeName?: string | null;
+  myShifts: WeekShiftLine[];
+  teamShifts: TeamShiftLine[];
+  onCall: OnCall;
+}): string {
+  const parts: string[] = [];
+
+  const greetName = opts.employeeName?.trim();
+  if (greetName) parts.push(`<p style="${P}">Hi ${esc(greetName)},</p>`);
+
+  const preface = opts.preface?.trim();
+  if (preface) {
+    parts.push(`<p style="${P}">${esc(preface).replace(/\n/g, "<br>")}</p>`);
+  }
+
+  parts.push(
+    `<p style="${P}">Here is your schedule for the week of ${usDate(opts.weekStartIso)}:</p>`
+  );
+
+  if (opts.myShifts.length > 0) {
+    const rows = opts.myShifts
+      .slice()
+      .sort(
+        (a, b) =>
+          a.date.localeCompare(b.date) || shiftOrder(a.shift) - shiftOrder(b.shift)
+      )
+      .map((s) => {
+        const site =
+          esc(s.customerName) +
+          (s.address
+            ? `<br><span style="color:#64748b;font-size:12px">${esc(s.address)}</span>`
+            : "");
+        return (
+          `<tr><td style="${TD}white-space:nowrap">${emailDateLabel(s.date)}</td>` +
+          `<td style="${TD}">${shiftWord(s.shift)}</td>` +
+          `<td style="${TD}">${site}</td>` +
+          `<td style="${TD}">${s.notes ? esc(s.notes) : ""}</td></tr>`
+        );
+      })
+      .join("");
+    parts.push(
+      `<table style="${TABLE}"><tr><th style="${TH}">Day</th><th style="${TH}">Shift</th>` +
+        `<th style="${TH}">Site</th><th style="${TH}">Notes</th></tr>${rows}</table>`
+    );
+  } else {
+    parts.push(`<p style="${P}">You are not scheduled to work this week.</p>`);
+  }
+
+  if (opts.teamShifts.length > 0) {
+    parts.push(`<p style="margin:0 0 8px;font-weight:bold">Where everyone is this week</p>`);
+    const byDate = new Map<string, TeamShiftLine[]>();
+    for (const s of opts.teamShifts) {
+      const list = byDate.get(s.date) ?? [];
+      list.push(s);
+      byDate.set(s.date, list);
+    }
+    const rows: string[] = [];
+    for (const date of [...byDate.keys()].sort()) {
+      rows.push(
+        `<tr><td colspan="3" style="${TD}background:#f8fafc;font-weight:bold">${emailDateLabel(date)}</td></tr>`
+      );
+      const byCustomer = new Map<string, TeamShiftLine[]>();
+      for (const s of byDate.get(date)!) {
+        const list = byCustomer.get(s.customerName) ?? [];
+        list.push(s);
+        byCustomer.set(s.customerName, list);
+      }
+      for (const name of [...byCustomer.keys()].sort()) {
+        const here = byCustomer.get(name)!;
+        const am = here.filter((s) => s.shift === "AM").map((s) => esc(s.employeeName)).join(", ");
+        const pm = here.filter((s) => s.shift === "PM").map((s) => esc(s.employeeName)).join(", ");
+        rows.push(
+          `<tr><td style="${TD}">${esc(name)}</td><td style="${TD}">${am}</td><td style="${TD}">${pm}</td></tr>`
+        );
+      }
+    }
+    parts.push(
+      `<table style="${TABLE}"><tr><th style="${TH}">Site</th><th style="${TH}">Morning</th>` +
+        `<th style="${TH}">Afternoon</th></tr>${rows.join("")}</table>`
+    );
+  }
+
+  const footer: string[] = [];
+  if (opts.onCall) {
+    const phone = opts.onCall.phone ? ` (${esc(opts.onCall.phone)})` : "";
+    footer.push(`<strong>On call:</strong> ${esc(opts.onCall.name)}${phone}`);
+  }
+  footer.push(`- ${esc(opts.companyName)}`);
+  parts.push(
+    `<p style="margin:12px 0 0;padding-top:10px;border-top:1px solid #e2e8f0;color:#334155">${footer.join("<br>")}</p>`
+  );
+
+  return (
+    `<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;color:#1f2937;line-height:1.5;max-width:640px">` +
+    parts.join("") +
+    `</div>`
+  );
+}
+
 // ---- Customer-facing email (optional "also email this customer" feature) ----
 // A plain-text note to a customer telling them who is coming to THEIR site and
-// when, for the day. Only the customer's own site is referenced.
+// when, for the week. Only the customer's own site is referenced.
 
-export type CustomerShiftLine = {
+export type CustomerVisitLine = {
+  date: string; // ISO
   shift: Shift;
   employeeName: string;
   notes: string | null;
 };
 
-export function buildCustomerSubject(
+export function buildCustomerWeekSubject(
   companyName: string,
-  dateIso: string
+  weekStartIso: string
 ): string {
-  return `${companyName} crew for ${emailDateLabel(dateIso)}`;
+  return `${companyName} crew for the week of ${usDate(weekStartIso)}`;
 }
 
-export function buildCustomerBody(opts: {
+export function buildCustomerWeekBody(opts: {
   companyName: string;
   customerName: string;
-  dateIso: string;
+  weekStartIso: string;
   preface: string | null;
-  shifts: CustomerShiftLine[]; // for this customer's site, AM before PM
+  visits: CustomerVisitLine[]; // for this customer's site only
 }): string {
   const blocks: string[] = [];
 
@@ -110,19 +317,28 @@ export function buildCustomerBody(opts: {
   if (preface) blocks.push(preface);
 
   blocks.push(
-    `${opts.companyName} crew scheduled for ${opts.customerName} on ${emailDateLabel(opts.dateIso)}:`
+    `${opts.companyName} crew scheduled for ${opts.customerName}, week of ${usDate(opts.weekStartIso)}:`
   );
 
-  const shiftText = opts.shifts
-    .slice()
-    .sort((a, b) => (a.shift === "AM" ? 0 : 1) - (b.shift === "AM" ? 0 : 1))
-    .map((s) => {
-      let text = `${s.shift}: ${s.employeeName}`;
-      if (s.notes) text += ` (${s.notes})`;
-      return text;
-    })
-    .join("\n");
-  if (shiftText) blocks.push(shiftText);
+  const byDate = new Map<string, CustomerVisitLine[]>();
+  for (const v of opts.visits) {
+    const list = byDate.get(v.date) ?? [];
+    list.push(v);
+    byDate.set(v.date, list);
+  }
+  const dayLines = [...byDate.keys()].sort().map((date) => {
+    const visits = byDate
+      .get(date)!
+      .slice()
+      .sort((a, b) => shiftOrder(a.shift) - shiftOrder(b.shift))
+      .map((v) => {
+        let text = `${v.shift} ${v.employeeName}`;
+        if (v.notes) text += ` (${v.notes})`;
+        return text;
+      });
+    return `${emailDateLabel(date)}: ${visits.join(", ")}`;
+  });
+  if (dayLines.length > 0) blocks.push(dayLines.join("\n"));
 
   return blocks.join("\n\n") + "\n";
 }

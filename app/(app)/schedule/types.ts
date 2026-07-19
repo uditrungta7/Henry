@@ -7,6 +7,7 @@ export type BoardCustomer = {
   color: string;
   open_start: string | null;
   open_end: string | null;
+  is_pinned: boolean;
 };
 
 export type BoardEmployee = {

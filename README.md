@@ -46,8 +46,8 @@ npm run seed
 `npm run seed` provisions two companies with one login each and distinct data,
 for the isolation check below:
 
-- **Acme Electric** — `owner-a@example.com` / `password123`
-- **Bolt Wiring** — `owner-b@example.com` / `password123`
+- **Acme Electric**, `owner-a@example.com` / `password123`
+- **Bolt Wiring**, `owner-b@example.com` / `password123`
 
 ### 5. Run
 
@@ -58,14 +58,14 @@ npm run dev
 
 ## Phase 1 verification (the hard gate)
 
-**Isolation — a user must never see another company's data:**
+**Isolation, a user must never see another company's data:**
 
 1. Sign in as `owner-a@example.com`. The dashboard shows **only** Acme's
    customers (Acme Customer One/Two) and employees (Alice/Andy Acme).
 2. Sign out, sign in as `owner-b@example.com`. You see **only** Bolt's data
    (Bolt Customer One/Two, Bea/Ben Bolt). Acme's data never appears.
 
-**License gate — only the affected company is blocked:**
+**License gate, only the affected company is blocked:**
 
 1. In the Supabase SQL Editor, end Acme's trial:
    ```sql
@@ -92,5 +92,5 @@ Done by us, no public signup. See the steps at the bottom of
 - All tenant data is read through the user's session (anon key + their JWT), so
   RLS is enforced on every query.
 - The service role key (`SUPABASE_SERVICE_ROLE_KEY`) bypasses RLS and is used
-  only server-side for provisioning and the email send — never sent to the
+  only server-side for provisioning and the email send, never sent to the
   browser, and every such query is scoped by `company_id` explicitly.

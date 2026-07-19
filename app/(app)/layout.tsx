@@ -1,31 +1,47 @@
-import { requireActiveCompany } from "@/lib/auth/company";
+"use client";
+
+// App shell. Reads the company name from the local DB via IPC (never hardcoded)
+// and renders the sidebar + nav around each page. The old remote auth/license
+// gate is gone; the license gate + optional local password arrive in Phase 4.
+
+import { useCallback } from "react";
+import { useData } from "@/lib/ipc/useData";
+import { henry } from "@/lib/ipc/client";
+import Gate from "@/lib/ipc/Gate";
 import Nav from "@/components/Nav";
 import { LogoMark } from "@/components/Logo";
 import SignOutButton from "@/components/SignOutButton";
 
-// Gates the entire app: requires a logged-in user with an active license.
-// A blocked company is redirected to /trial-ended before any page renders.
-export default async function AppLayout({
+export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const company = await requireActiveCompany();
+  return (
+    <Gate>
+      <AppShell>{children}</AppShell>
+    </Gate>
+  );
+}
+
+function AppShell({ children }: { children: React.ReactNode }) {
+  const load = useCallback(async () => (await henry().company.get()).name, []);
+  const { data: companyName } = useData(load, "company-name");
 
   return (
     <div className="flex h-screen overflow-hidden">
       <aside className="flex h-screen w-60 shrink-0 flex-col justify-between border-r border-slate-200 bg-white p-4">
         <div>
-          <div className="mb-6 px-3">
-            <div className="mb-2 flex items-center gap-2">
-              <LogoMark size={28} />
-              <span className="text-sm font-semibold text-slate-500">Henry</span>
-            </div>
-            <div className="text-xl font-bold">{company.name}</div>
+          <div className="mb-8 flex items-center gap-2.5 px-3 pt-1">
+            <LogoMark size={30} className="shrink-0" />
+            <span className="text-lg font-bold tracking-tight">Henry</span>
           </div>
           <Nav />
         </div>
-        <div className="px-3">
+        <div className="flex items-center justify-between gap-2 px-3">
+          <span className="min-w-0 truncate text-xs font-medium text-slate-400">
+            {companyName ?? ""}
+          </span>
           <SignOutButton />
         </div>
       </aside>

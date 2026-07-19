@@ -1,14 +1,21 @@
-// Henry logo: a rounded blue tile with a white spark/bolt that doubles as a
-// checkmark — nods to the electrical trade (bolt) and to scheduling (check =
-// "set / done"), with an amber accent for the trade's energy color. Designed to
-// stay legible from 20px (sidebar/favicon) up. Pure SVG, themeable, no assets.
+// Henry logo, "people on rows": three people, each with their own week row —
+// what the app manages. Bare (no tile) so it stays light on white surfaces;
+// the installer / dock icon uses the same mark on a white tile (build/icon.*).
+// Colors by role: orange = the field crew's energy (safety-vest orange, blue's
+// complement), blue = trust/reliability (the app's accent), teal = confirmed /
+// done. Rows are neutral slate — the schedule is the structure, people are the
+// color. Same value step for all three hues so the crew reads as equals.
 export function LogoMark({
   size = 32,
   className = "",
+  onDark = false,
 }: {
   size?: number;
   className?: string;
+  // Rows flip to light slate when the mark sits on a dark surface.
+  onDark?: boolean;
 }) {
+  const row = onDark ? "#cbd5e1" : "#475569";
   return (
     <svg
       width={size}
@@ -19,21 +26,12 @@ export function LogoMark({
       aria-label="Henry"
       className={className}
     >
-      <defs>
-        <linearGradient id="henryTile" x1="0" y1="0" x2="48" y2="48">
-          <stop offset="0" stopColor="#2563eb" />
-          <stop offset="1" stopColor="#4f46e5" />
-        </linearGradient>
-      </defs>
-      {/* Rounded tile */}
-      <rect width="48" height="48" rx="12" fill="url(#henryTile)" />
-      {/* Lightning bolt — the electrical trade mark, white body. */}
-      <path
-        d="M27 8 L15 26 H23 L21 40 L35 20 H26 L30 8 Z"
-        fill="#ffffff"
-      />
-      {/* Amber spark tip — the trade's energy color, top-right. */}
-      <circle cx="34" cy="14" r="2.6" fill="#f59e0b" />
+      <circle cx="7" cy="9" r="6" fill="#f97316" />
+      <rect x="18" y="4.5" width="28" height="9" rx="4.5" fill={row} />
+      <circle cx="7" cy="24" r="6" fill="#3b82f6" />
+      <rect x="18" y="19.5" width="19" height="9" rx="4.5" fill={row} />
+      <circle cx="7" cy="39" r="6" fill="#14b8a6" />
+      <rect x="18" y="34.5" width="24" height="9" rx="4.5" fill={row} />
     </svg>
   );
 }

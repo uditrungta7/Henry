@@ -1,38 +1,15 @@
-"use server";
+"use client";
 
-import { revalidatePath } from "next/cache";
-import { createClient } from "@/lib/supabase/server";
-import { requireLicensedCompany } from "@/lib/auth/company";
-import { weekDays, addDays } from "@/lib/dates";
+// Schedule (assignment) mutations. Same exported names/signatures as before, now
+// backed by local SQLite through the Electron IPC bridge. Double-booking is
+// enforced by the DB unique (employee_id, work_date, shift); the main process
+// translates the violation into a readable message. Single tenant.
 
-// All writes go through the RLS-enforced session client. Double-booking is
-// enforced by the DB unique (company_id, employee_id, work_date, shift); we
-// translate the unique-violation (Postgres 23505) into a readable message.
-// Every mutating action gates the license via requireLicensedCompany().
+import { henry, emitDataChanged } from "@/lib/ipc/client";
+import { weekDays } from "@/lib/dates";
 
 type Shift = "AM" | "PM";
 type ActionResult = { error?: string };
-
-const DOUBLE_BOOK = "That employee is already booked for that shift this day.";
-
-function describe(error: { code?: string; message: string }): string {
-  if (error.code === "23505") return DOUBLE_BOOK;
-  return error.message;
-}
-
-// Confirm a customer id belongs to the caller's company (RLS-scoped read).
-// Guards against a crafted/cross-company id corrupting an assignment's FK.
-async function customerInCompany(
-  supabase: ReturnType<typeof createClient>,
-  customerId: string
-): Promise<boolean> {
-  const { data } = await supabase
-    .from("customers")
-    .select("id")
-    .eq("id", customerId)
-    .maybeSingle();
-  return !!data;
-}
 
 export async function assign(
   customerId: string,
@@ -40,154 +17,59 @@ export async function assign(
   workDate: string,
   shift: Shift
 ): Promise<ActionResult> {
-  const gate = await requireLicensedCompany();
-  if ("error" in gate) return { error: gate.error };
-  const supabase = createClient();
-
-  if (!(await customerInCompany(supabase, customerId))) {
-    return { error: "That site is no longer available." };
-  }
-
-  const { error } = await supabase.from("assignments").insert({
-    company_id: gate.companyId,
-    customer_id: customerId,
-    employee_id: employeeId,
-    work_date: workDate,
-    shift,
-  });
-  if (error) return { error: describe(error) };
-  revalidatePath("/");
-  return {};
+  const res = await henry().assignments.assign(customerId, employeeId, workDate, shift);
+  if (!res.error) emitDataChanged();
+  return res;
 }
 
 export async function unassign(assignmentId: string): Promise<ActionResult> {
-  const gate = await requireLicensedCompany();
-  if ("error" in gate) return { error: gate.error };
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("assignments")
-    .delete()
-    .eq("id", assignmentId);
-  if (error) return { error: error.message };
-  revalidatePath("/");
-  return {};
+  const res = await henry().assignments.unassign(assignmentId);
+  if (!res.error) emitDataChanged();
+  return res;
 }
 
-// Move an assignment to a different customer/shift on the same date. If the
-// target cell already holds an assignment, the two swap.
 export async function move(
   assignmentId: string,
   targetCustomerId: string,
   targetShift: Shift,
   targetAssignmentId: string | null
 ): Promise<ActionResult> {
-  const gate = await requireLicensedCompany();
-  if ("error" in gate) return { error: gate.error };
-  const supabase = createClient();
-
-  if (!(await customerInCompany(supabase, targetCustomerId))) {
-    return { error: "That site is no longer available." };
-  }
-
-  const { data: moving } = await supabase
-    .from("assignments")
-    .select("id, customer_id, shift, work_date")
-    .eq("id", assignmentId)
-    .single();
-  if (!moving) return { error: "That assignment no longer exists." };
-
-  if (targetAssignmentId) {
-    // Swap: move the target into the source cell, then the source into target.
-    // Step both to the destination in two updates; the unique constraint can't
-    // be violated because each (employee, date, shift) row keeps its employee
-    // and only customer/shift change, and we never put two of the same
-    // employee in one shift here.
-    const { error: e1 } = await supabase
-      .from("assignments")
-      .update({ customer_id: moving.customer_id, shift: moving.shift })
-      .eq("id", targetAssignmentId);
-    if (e1) return { error: describe(e1) };
-
-    const { error: e2 } = await supabase
-      .from("assignments")
-      .update({ customer_id: targetCustomerId, shift: targetShift })
-      .eq("id", assignmentId);
-    if (e2) return { error: describe(e2) };
-  } else {
-    const { error } = await supabase
-      .from("assignments")
-      .update({ customer_id: targetCustomerId, shift: targetShift })
-      .eq("id", assignmentId);
-    if (error) return { error: describe(error) };
-  }
-
-  revalidatePath("/");
-  return {};
+  const res = await henry().assignments.move(
+    assignmentId,
+    targetCustomerId,
+    targetShift,
+    targetAssignmentId
+  );
+  if (!res.error) emitDataChanged();
+  return res;
 }
 
 export async function setNotes(
   assignmentId: string,
   notes: string | null
 ): Promise<ActionResult> {
-  const gate = await requireLicensedCompany();
-  if ("error" in gate) return { error: gate.error };
-  const supabase = createClient();
-  const { error } = await supabase
-    .from("assignments")
-    .update({ notes })
-    .eq("id", assignmentId);
-  if (error) return { error: error.message };
-  revalidatePath("/");
-  return {};
+  const res = await henry().assignments.setNotes(assignmentId, notes);
+  if (!res.error) emitDataChanged();
+  return res;
 }
 
-// Copy a week's assignments to the same weekdays of the following week as
-// drafts. Skips any that would double-book (already booked next week).
+// Pin/unpin a customer to the top of the board (max 3, enforced in the main
+// process). Returns the error message when the limit is hit so the board can show it.
+export async function setCustomerPinned(
+  customerId: string,
+  pinned: boolean
+): Promise<ActionResult> {
+  const res = await henry().customers.setPinned(customerId, pinned);
+  if (!res.error) emitDataChanged();
+  return res;
+}
+
+// Copy a week's assignments to next week. The caller still passes any date in the
+// week (unchanged signature); we expand to the 7 Mon-Sun ISO dates here.
 export async function copyWeek(
   anyDateInWeek: string
 ): Promise<ActionResult & { copied?: number; skipped?: number }> {
-  const gate = await requireLicensedCompany();
-  if ("error" in gate) return { error: gate.error };
-  const supabase = createClient();
-  const cid = gate.companyId;
-
-  const days = weekDays(anyDateInWeek);
-  const first = days[0];
-  const last = days[6];
-
-  const { data: source } = await supabase
-    .from("assignments")
-    .select("customer_id, employee_id, work_date, shift, notes")
-    .gte("work_date", first)
-    .lte("work_date", last);
-
-  if (!source || source.length === 0) {
-    return { error: "There are no assignments this week to copy." };
-  }
-
-  const rows = source.map((a) => ({
-    company_id: cid,
-    customer_id: a.customer_id,
-    employee_id: a.employee_id,
-    work_date: addDays(a.work_date, 7),
-    shift: a.shift,
-    notes: a.notes,
-    status: "draft" as const,
-  }));
-
-  // Insert one at a time so a double-book (23505) skips just that row.
-  let copied = 0;
-  let skipped = 0;
-  for (const row of rows) {
-    const { error } = await supabase.from("assignments").insert(row);
-    if (error) {
-      if (error.code === "23505") skipped++;
-      else return { error: error.message };
-    } else {
-      copied++;
-    }
-  }
-
-  revalidatePath("/");
-  return { copied, skipped };
+  const res = await henry().assignments.copyWeek(weekDays(anyDateInWeek));
+  if (!res.error) emitDataChanged();
+  return res;
 }

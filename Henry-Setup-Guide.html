@@ -1,0 +1,273 @@
+<main>
+  <header class="hero">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" aria-hidden="true">
+        <circle cx="7" cy="9" r="6" fill="#f97316" />
+        <rect x="18" y="4.5" width="28" height="9" rx="4.5" fill="#475569" />
+        <circle cx="7" cy="24" r="6" fill="#3b82f6" />
+        <rect x="18" y="19.5" width="19" height="9" rx="4.5" fill="#475569" />
+        <circle cx="7" cy="39" r="6" fill="#14b8a6" />
+        <rect x="18" y="34.5" width="24" height="9" rx="4.5" fill="#475569" />
+      </svg>
+      <span class="wordmark">Henry</span>
+    </div>
+    <h1>Getting started with Henry</h1>
+    <p class="lede">Henry schedules your crew and emails everyone their week in one click. It runs entirely on this computer &mdash; no account to create, nothing in the cloud. This guide takes you from install to sending your first schedule in about 15 minutes.</p>
+  </header>
+
+  <section>
+    <h2><span class="num">1</span>Install Henry</h2>
+
+    <div class="platform">
+      <h3>On a Mac</h3>
+      <ol>
+        <li>Open the <code>Henry-1.0.0.dmg</code> file you were given.</li>
+        <li>Drag the <b>Henry</b> icon onto the <b>Applications</b> folder.</li>
+        <li>Open <b>Applications</b> and double-click <b>Henry</b>.</li>
+      </ol>
+      <div class="note">
+        <b>First time only:</b> if the Mac says Henry &ldquo;can&rsquo;t be opened&rdquo; or is from an &ldquo;unidentified developer,&rdquo; <b>right-click the Henry icon &rarr; Open &rarr; Open</b>. If it still won&rsquo;t open, go to <b>System Settings &rarr; Privacy &amp; Security</b>, scroll down, and click <b>Open Anyway</b>. You only do this once.
+      </div>
+    </div>
+
+    <div class="platform">
+      <h3>On Windows</h3>
+      <ol>
+        <li>Double-click <code>Henry Setup 1.0.0.exe</code>.</li>
+        <li>Henry installs and opens on its own &mdash; no options to pick.</li>
+        <li>Afterwards, open it any time from the <b>Start menu</b> or the desktop shortcut.</li>
+      </ol>
+      <div class="note">
+        <b>First time only:</b> if Windows shows a blue <b>&ldquo;Windows protected your PC&rdquo;</b> box, click <b>More info</b> &rarr; <b>Run anyway</b>. You only do this once.
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span>First launch</h2>
+    <p>The first screen asks <b>&ldquo;Protect this computer?&rdquo;</b> &mdash; an optional password that locks Henry itself, handy on a shared office computer.</p>
+    <ul>
+      <li>Type a password twice and click <b>Set password</b>, <b>or</b></li>
+      <li>Click <b>Skip</b> &mdash; you can always add one later in <b>Settings &rarr; App password</b>.</li>
+    </ul>
+    <p>You then land on the <b>Dashboard</b>, which shows a short setup checklist. The next steps walk through it.</p>
+
+    <figure class="shot" aria-label="Illustration of the setup checklist">
+      <div class="shot-title">Let&rsquo;s get Henry set up</div>
+      <ul class="checklist">
+        <li class="done"><span class="tick">&check;</span> Name your company</li>
+        <li><span class="dot"></span> Connect your email <span class="cta">Set up</span></li>
+        <li><span class="dot"></span> Add your employees <span class="cta">Add</span></li>
+        <li><span class="dot"></span> Add your customers <span class="cta">Add</span></li>
+      </ul>
+      <figcaption>The Dashboard checklist guides you through setup and checks each step off as you go.</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span>Name your company</h2>
+    <p>Go to <b>Settings &rarr; Company</b> (or use the Dashboard checklist). Type your company name and click <b>Save name</b>. It shows in the sidebar and signs the bottom of every schedule email, so set it before you publish anything.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span>Connect your email</h2>
+    <p>Henry sends schedules <b>from your own email account</b>. Set this up once in <b>Settings &rarr; Email</b>.</p>
+
+    <h3>Gmail / Google Workspace (most common)</h3>
+    <p>Gmail won&rsquo;t accept your normal password from an app, so you create a one-time <b>App Password</b>:</p>
+    <ol>
+      <li>In a browser, sign in at <b>myaccount.google.com</b> with the Gmail account Henry should send from.</li>
+      <li>Open <b>Security</b> and make sure <b>2-Step Verification</b> is <b>ON</b> (App Passwords require it).</li>
+      <li>Search the page for <b>&ldquo;App passwords,&rdquo;</b> open it, name one <b>Henry</b>, and click <b>Create</b>.</li>
+      <li>Google shows a <b>16-character password once</b> &mdash; copy it now.</li>
+      <li>In Henry &rarr; <b>Settings &rarr; Email</b>, choose <b>Gmail / Google Workspace</b> and fill in:</li>
+    </ol>
+    <div class="tablewrap"><table>
+      <tr><td><b>From name</b></td><td>Your company name (what recipients see)</td></tr>
+      <tr><td><b>From address</b></td><td>The Gmail address</td></tr>
+      <tr><td><b>Username</b></td><td>The same Gmail address</td></tr>
+      <tr><td><b>Gmail app password</b></td><td>The 16 characters (spaces don&rsquo;t matter)</td></tr>
+    </table></div>
+    <p>Click <b>Save</b>, then <b>Send test email</b>. Check that address&rsquo;s inbox (and spam). If it arrives, you&rsquo;re done.</p>
+
+    <h3>Microsoft 365 / Outlook</h3>
+    <p>Pick the <b>Microsoft 365 / Outlook</b> option and use the mailbox address and its normal password. If sign-in is blocked, your Microsoft admin needs to allow <b>SMTP AUTH</b> for that mailbox.</p>
+
+    <h3>Any other provider</h3>
+    <p>Pick <b>Custom SMTP</b> and enter the server, port, and security from your email provider (commonly port 587, TLS).</p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span>Add your customers &amp; employees</h2>
+    <p>Two ways &mdash; do whichever is easier:</p>
+
+    <h3>Type them in</h3>
+    <ul>
+      <li><b>Customers</b> page &rarr; <b>Add customer</b>: name, address, opening hours, and an optional &ldquo;email this customer&rdquo; toggle.</li>
+      <li><b>Employees</b> page &rarr; <b>Add employee</b>: name and, importantly, their <b>email</b> (that&rsquo;s where their schedule is sent). You can also mark someone <b>On call</b> or record <b>time off</b>.</li>
+    </ul>
+
+    <h3>Or import a spreadsheet (faster for a full roster)</h3>
+    <p>Open <b>Import</b> and drop in an Excel file (<code>.xlsx</code>) with two tabs named exactly <code>CUSTOMER DATA</code> and <code>EMPLOYEE DATA</code>, each with a header row on top. Henry shows a <b>Review</b> screen to confirm the columns before saving &mdash; nothing is saved until you click confirm. These columns auto-match:</p>
+    <div class="tablewrap"><table>
+      <thead><tr><th>CUSTOMER DATA</th><th>EMPLOYEE DATA</th></tr></thead>
+      <tbody>
+        <tr><td>Customer name <span class="req">required</span></td><td>Full name <span class="req">required</span></td></tr>
+        <tr><td>Contact name, Phone, Address, City, ZIP</td><td>Email <span class="req">for delivery</span></td></tr>
+        <tr><td>Start time, End time (opening hours)</td><td>EID, Position, E-Rating, Phone, City, State</td></tr>
+      </tbody>
+    </table></div>
+    <p class="tip">Re-importing the same file later is safe &mdash; rows are matched by name and updated, never duplicated. So you can fix data in Excel and import again any time.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span>Build a schedule</h2>
+    <p>Open <b>Schedule</b>. Each row is a customer site; you place people into <b>Morning</b> and <b>Afternoon</b> shifts. Use the <b>Day / Week</b> toggle to switch views.</p>
+    <ul>
+      <li><b>Assign:</b> click a cell and pick a person, or drag someone between cells.</li>
+      <li><b>Notes:</b> click an assignment to add a note (e.g. &ldquo;bring the tall ladder&rdquo;) &mdash; it goes into that person&rsquo;s email.</li>
+      <li><b>Copy week:</b> copy last week&rsquo;s plan onto this week as a starting point.</li>
+      <li>Henry gently warns about time off, closed sites, and double-booking.</li>
+    </ul>
+
+    <figure class="shot" aria-label="Illustration of the weekly schedule board">
+      <div class="board-head"><span>Customer</span><span>Sun</span><span>Mon</span><span>Tue</span></div>
+      <div class="board-row"><span class="cust"><i style="background:#2563eb"></i>Northgate Mall</span><span class="chip am">Jamie R.</span><span class="empty">+ Assign</span><span class="empty">+ Assign</span></div>
+      <div class="board-row"><span class="cust"><i style="background:#16a34a"></i>Riverside Clinic</span><span class="empty">+ Assign</span><span class="chip pm">Alex P.</span><span class="empty">+ Assign</span></div>
+      <div class="board-row"><span class="cust"><i style="background:#ca8a04"></i>Cedar Office Park</span><span class="empty">+ Assign</span><span class="empty">+ Assign</span><span class="chip am">Sam T.</span></div>
+      <figcaption>The weekly board &mdash; sites down the side, days across the top. (Example names.)</figcaption>
+    </figure>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span>Publish the week</h2>
+    <p>Click <b>Publish week</b> in the Schedule toolbar.</p>
+    <ol>
+      <li>Optionally add a <b>message at the top</b> (goes into every email).</li>
+      <li>Optionally pick who is <b>on call</b> &mdash; the backup person, who must not be scheduled to work that week.</li>
+      <li>Click <b>Preview the email</b> to see exactly what a person will receive.</li>
+      <li>Click <b>Send to everyone</b>. Each active employee gets one email with <b>their own week</b> plus the <b>whole team&rsquo;s plan</b>.</li>
+    </ol>
+    <p>If you edit a week you already sent, a reminder banner appears until you re-publish. Re-publishing only emails people whose week actually changed. <b>Publish history</b> lists every send, and you can resend any failed email from there.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">8</span>Activate your license</h2>
+    <p>Each computer is activated by us &mdash; there&rsquo;s no key to type. Open <b>Settings &rarr; License</b>, copy <b>this computer&rsquo;s license ID</b>, and send it to us. We activate it on our side; you click <b>Check again now</b> and you&rsquo;re set. Working offline is fine &mdash; Henry re-checks about once a day. Your data is never deleted.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">9</span>Back up your data</h2>
+    <p>Everything lives in one folder on this computer (there is no cloud copy):</p>
+    <div class="tablewrap"><table>
+      <tr><td><b>Mac</b></td><td><code>~/Library/Application Support/henry</code></td></tr>
+      <tr><td><b>Windows</b></td><td><code>%APPDATA%\henry</code></td></tr>
+    </table></div>
+    <p>If this computer is backed up (Time Machine on Mac, File History / a backup tool on Windows), Henry is backed up with it. To move Henry to a new computer, install the app there and copy this folder across.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">10</span>If something goes wrong</h2>
+    <div class="tablewrap"><table>
+      <thead><tr><th>Problem</th><th>Fix</th></tr></thead>
+      <tbody>
+        <tr><td>&ldquo;Authentication failed&rdquo; when sending (Gmail)</td><td>You almost certainly used your normal password. Create an <b>App Password</b> (step 4) and paste that instead.</td></tr>
+        <tr><td>You changed your Gmail password</td><td>That revokes app passwords. Create a new one and update <b>Settings &rarr; Email</b>.</td></tr>
+        <tr><td>Test email never arrives</td><td>Check spam; confirm the <b>From address</b> and <b>Username</b> are identical.</td></tr>
+        <tr><td>Import says a sheet is missing</td><td>The tabs must be named exactly <code>CUSTOMER DATA</code> and <code>EMPLOYEE DATA</code>.</td></tr>
+        <tr><td>Someone gets no email</td><td>They have no email address on their Employees record, or they&rsquo;re archived. Publish history shows the reason.</td></tr>
+        <tr><td>App won&rsquo;t open after download</td><td><b>Mac:</b> right-click &rarr; Open. <b>Windows:</b> More info &rarr; Run anyway.</td></tr>
+      </tbody>
+    </table></div>
+    <p class="tip">Still stuck? Contact us with a short description and, if you can, a screenshot &mdash; we&rsquo;ll help you get running.</p>
+  </section>
+
+  <footer class="foot">
+    <span class="brand"><svg class="logo sm" viewBox="0 0 48 48" aria-hidden="true"><circle cx="7" cy="9" r="6" fill="#f97316"/><rect x="18" y="4.5" width="28" height="9" rx="4.5" fill="#94a3b8"/><circle cx="7" cy="24" r="6" fill="#3b82f6"/><rect x="18" y="19.5" width="19" height="9" rx="4.5" fill="#94a3b8"/><circle cx="7" cy="39" r="6" fill="#14b8a6"/><rect x="18" y="34.5" width="24" height="9" rx="4.5" fill="#94a3b8"/></svg><b>Henry</b></span>
+    <span>Plan the week, press send, and every crew member knows where to be.</span>
+  </footer>
+</main>
+
+<style>
+  :root {
+    --bg: #eef2f7; --panel: #ffffff; --ink: #0f172a; --muted: #55617a;
+    --accent: #2563eb; --accent-soft: rgba(37,99,235,.10); --border: #e2e8f0;
+    --shadow: 0 14px 40px -24px rgba(15,23,42,.4); --ok: #16a34a;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0d121c; --panel: #151d2b; --ink: #e8ecf3; --muted: #98a4b8;
+      --accent: #6ea8fe; --accent-soft: rgba(110,168,254,.14); --border: #253149;
+      --shadow: 0 14px 40px -22px rgba(0,0,0,.6); --ok: #4ade80; }
+  }
+  :root[data-theme="light"] { --bg:#eef2f7; --panel:#fff; --ink:#0f172a; --muted:#55617a; --accent:#2563eb; --accent-soft:rgba(37,99,235,.10); --border:#e2e8f0; --shadow:0 14px 40px -24px rgba(15,23,42,.4); --ok:#16a34a; }
+  :root[data-theme="dark"] { --bg:#0d121c; --panel:#151d2b; --ink:#e8ecf3; --muted:#98a4b8; --accent:#6ea8fe; --accent-soft:rgba(110,168,254,.14); --border:#253149; --shadow:0 14px 40px -22px rgba(0,0,0,.6); --ok:#4ade80; }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  main { max-width: 760px; margin: 0 auto; padding: 24px 22px 64px; }
+  code { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .92em;
+    background: var(--accent-soft); color: var(--accent); padding: 1px 6px; border-radius: 6px; }
+
+  .hero { padding: 40px 0 8px; }
+  .brand { display: flex; align-items: center; gap: 9px; margin-bottom: 22px; }
+  .logo { width: 30px; height: 30px; }
+  .logo.sm { width: 18px; height: 18px; }
+  .wordmark { font-size: 20px; font-weight: 800; letter-spacing: -.02em; }
+  h1 { font-size: clamp(28px, 5vw, 38px); font-weight: 800; letter-spacing: -.025em;
+    margin: 0 0 14px; text-wrap: balance; }
+  .lede { font-size: 17px; color: var(--muted); margin: 0; max-width: 62ch; }
+
+  section { margin-top: 40px; }
+  h2 { display: flex; align-items: center; gap: 12px; font-size: 22px; font-weight: 750;
+    letter-spacing: -.02em; margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+  .num { flex: none; display: grid; place-items: center; width: 30px; height: 30px; border-radius: 9px;
+    background: var(--accent); color: #fff; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; }
+  h3 { font-size: 16px; font-weight: 700; margin: 22px 0 8px; }
+  p { margin: 12px 0; }
+  ol, ul { margin: 12px 0; padding-left: 24px; }
+  li { margin: 7px 0; }
+
+  .platform { background: var(--panel); border: 1px solid var(--border); border-radius: 14px;
+    padding: 8px 20px 18px; margin: 16px 0; box-shadow: var(--shadow); }
+  .platform h3 { color: var(--accent); }
+
+  .note { background: var(--accent-soft); border-radius: 10px; padding: 12px 15px; margin-top: 12px; font-size: 14.5px; }
+  .tip { color: var(--muted); font-size: 14.5px; }
+
+  .tablewrap { overflow-x: auto; margin: 14px 0; border: 1px solid var(--border); border-radius: 12px; }
+  table { width: 100%; border-collapse: collapse; font-size: 14.5px; }
+  th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  tr:last-child td { border-bottom: none; }
+  thead th { background: var(--accent-soft); font-weight: 700; }
+  .req { display: inline-block; font-size: 11px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 1px 7px; border-radius: 999px; margin-left: 6px; vertical-align: middle; }
+
+  /* Illustrations (recreated in HTML — not screenshots, generic content only) */
+  .shot { margin: 18px 0; background: var(--panel); border: 1px solid var(--border);
+    border-radius: 14px; padding: 18px; box-shadow: var(--shadow); }
+  .shot figcaption { margin-top: 12px; font-size: 13px; color: var(--muted); text-align: center; }
+  .shot-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; }
+  .checklist { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+  .checklist li { display: flex; align-items: center; gap: 10px; margin: 0; padding: 11px 14px; border-bottom: 1px solid var(--border); font-weight: 600; }
+  .checklist li:last-child { border-bottom: none; }
+  .checklist .tick { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 999px; background: rgba(22,163,74,.15); color: var(--ok); font-size: 13px; }
+  .checklist .dot { width: 22px; height: 22px; border-radius: 999px; background: var(--border); }
+  .checklist .done { color: var(--muted); text-decoration: line-through; }
+  .checklist .cta { margin-left: auto; font-size: 12px; font-weight: 700; color: #fff; background: var(--accent); padding: 4px 12px; border-radius: 8px; }
+
+  .board-head, .board-row { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 8px; align-items: center; }
+  .board-head { font-size: 12px; color: var(--muted); font-weight: 600; padding: 0 4px 8px; }
+  .board-row { padding: 9px 4px; border-top: 1px solid var(--border); font-size: 13px; }
+  .board-row .cust { display: flex; align-items: center; gap: 7px; font-weight: 600; }
+  .board-row .cust i { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+  .chip { padding: 5px 8px; border-radius: 8px; font-weight: 600; font-size: 12px; }
+  .chip.am { background: rgba(37,99,235,.12); }
+  .chip.pm { background: rgba(20,184,166,.14); }
+  .empty { color: var(--muted); border: 1px dashed var(--border); border-radius: 8px; padding: 5px 8px; font-size: 12px; }
+
+  .foot { margin-top: 52px; padding-top: 20px; border-top: 1px solid var(--border);
+    display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center; color: var(--muted); font-size: 13.5px; }
+  .foot .brand { gap: 7px; margin: 0; }
+</style>

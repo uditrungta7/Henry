@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Button, Field, Input, Modal } from "@/components/ui";
+import { Button, Field, Input, Modal, Select, UsDateInput } from "@/components/ui";
 import {
   titleCase,
   summarizeTimeOff,
@@ -56,9 +56,11 @@ const empty: EmployeeInput = {
 export default function EmployeesClient({
   employees,
   today,
+  reasons,
 }: {
   employees: Employee[];
   today: string;
+  reasons: string[];
 }) {
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
@@ -88,7 +90,7 @@ export default function EmployeesClient({
 
       <div className="flex flex-wrap items-center gap-3">
         <Input
-          placeholder="Search by name, role, or email…"
+          placeholder="Search by name, role, or email..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="max-w-xs"
@@ -110,17 +112,17 @@ export default function EmployeesClient({
           onAdd={() => setEditing("new")}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[calc(100vh-13rem)] overflow-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
+            <thead className="text-sm text-slate-500">
               <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">EID</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">City, State</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Time off</th>
-                <th className="px-4 py-2"></th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Name</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">EID</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Role</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">City, State</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Email</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Time off</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -140,14 +142,14 @@ export default function EmployeesClient({
                       )}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-slate-600">{e.eid ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-600">{e.eid ?? "-"}</td>
                   <td className="px-4 py-2 text-slate-600">
-                    {e.role ? titleCase(e.role) : "—"}
+                    {e.role ? titleCase(e.role) : "-"}
                   </td>
                   <td className="px-4 py-2 text-slate-600">
                     {[titleCase(e.city ?? ""), e.state ?? ""]
                       .filter(Boolean)
-                      .join(", ") || "—"}
+                      .join(", ") || "-"}
                   </td>
                   <td className="px-4 py-2 text-slate-600">
                     {e.email ?? (
@@ -202,6 +204,7 @@ export default function EmployeesClient({
         <TimeOffModal
           employee={timeOffFor}
           today={today}
+          reasons={reasons}
           onClose={() => setTimeOffFor(null)}
         />
       )}
@@ -313,7 +316,7 @@ function EmployeeForm({
               onChange={(e) => set("role", e.target.value || null)}
             />
           </Field>
-          <Field label="E-Rating (1–10)">
+          <Field label="E-Rating (1-10)">
             <Input
               type="number"
               min={1}
@@ -378,7 +381,7 @@ function EmployeeForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </form>
@@ -389,18 +392,24 @@ function EmployeeForm({
 function TimeOffModal({
   employee,
   today,
+  reasons,
   onClose,
 }: {
   employee: Employee;
   today: string;
+  reasons: string[];
   onClose: () => void;
 }) {
   const [start, setStart] = useState("");
   const [end, setEnd] = useState("");
-  const [reason, setReason] = useState("");
+  // Reason is chosen from the boss-managed dropdown; "Other" reveals a free-text box.
+  const [reasonChoice, setReasonChoice] = useState("");
+  const [otherReason, setOtherReason] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [showPast, setShowPast] = useState(false);
+
+  const reason = reasonChoice === "Other" ? otherReason : reasonChoice;
 
   // Query gives ascending order; split into past vs upcoming/in-progress.
   const upcoming = employee.time_off.filter((t) => !isPastRange(t, today));
@@ -422,11 +431,12 @@ function TimeOffModal({
     }
     setStart("");
     setEnd("");
-    setReason("");
+    setReasonChoice("");
+    setOtherReason("");
   }
 
   return (
-    <Modal title={`Time off — ${employee.name}`} onClose={onClose}>
+    <Modal title={`Time off: ${employee.name}`} onClose={onClose}>
       <div className="space-y-4">
         {employee.time_off.length === 0 && (
           <p className="text-slate-500">No time off recorded.</p>
@@ -485,23 +495,36 @@ function TimeOffModal({
         <form onSubmit={add} className="space-y-3 border-t border-slate-100 pt-4">
           <div className="grid grid-cols-2 gap-4">
             <Field label="From">
-              <Input
-                type="date"
-                value={start}
-                onChange={(e) => setStart(e.target.value)}
-              />
+              <UsDateInput value={start} onChange={setStart} autoFocus />
             </Field>
             <Field label="To">
-              <Input
-                type="date"
-                value={end}
-                onChange={(e) => setEnd(e.target.value)}
-              />
+              <UsDateInput value={end} onChange={setEnd} />
             </Field>
           </div>
           <Field label="Reason (optional)">
-            <Input value={reason} onChange={(e) => setReason(e.target.value)} />
+            <Select
+              value={reasonChoice}
+              onChange={(e) => setReasonChoice(e.target.value)}
+            >
+              <option value="">(none)</option>
+              {reasons.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+              <option value="Other">Other...</option>
+            </Select>
           </Field>
+          {reasonChoice === "Other" && (
+            <Field label="Other reason">
+              <Input
+                value={otherReason}
+                autoFocus
+                onChange={(e) => setOtherReason(e.target.value)}
+                placeholder="Type the reason"
+              />
+            </Field>
+          )}
           {error && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">
               {error}

@@ -12,10 +12,23 @@ import {
   type DragEndEvent,
 } from "@dnd-kit/core";
 import { Button, Modal, Field, Input, ConfirmDialog } from "@/components/ui";
-import { addDays, formatDayLabel, weekdayShort, monthDayShort } from "@/lib/dates";
-import { assign, unassign, move, setNotes, copyWeek } from "./actions";
-import { onTimeOff, customerClosed, shiftPhaseNow, isAtWork } from "./warnings";
-import PublishPanel, { type PreviewEmployee } from "./PublishPanel";
+import {
+  addDays,
+  formatUsDate,
+  weekDays,
+  weekStart,
+  weekdayShort,
+  monthDayShort,
+} from "@/lib/dates";
+import { assign, unassign, move, setNotes, copyWeek, setCustomerPinned } from "./actions";
+import {
+  onTimeOff,
+  customerHoursLabel,
+  closedReason,
+  shiftPhaseNow,
+  isAtWork,
+} from "./warnings";
+import WeekPublishPanel from "./WeekPublishPanel";
 import type {
   BoardCustomer,
   BoardEmployee,
@@ -24,41 +37,6 @@ import type {
   Shift,
 } from "./types";
 
-// Shift lines per assigned employee for the day, for the publish email preview.
-function buildPreviewEmployees(
-  date: string,
-  employees: BoardEmployee[],
-  customers: BoardCustomer[],
-  assignments: BoardAssignment[]
-): PreviewEmployee[] {
-  const custById = new Map(customers.map((c) => [c.id, c]));
-  const dayAssignments = assignments.filter((a) => a.work_date === date);
-  const byEmployee = new Map<string, PreviewEmployee>();
-
-  for (const emp of employees) {
-    const shifts = dayAssignments
-      .filter((a) => a.employee_id === emp.id)
-      .map((a) => {
-        const c = custById.get(a.customer_id);
-        return {
-          shift: a.shift,
-          customerName: c?.name ?? "Unknown",
-          address: c?.address ?? null,
-          notes: a.notes,
-        };
-      });
-    if (shifts.length > 0) {
-      byEmployee.set(emp.id, {
-        id: emp.id,
-        name: emp.name,
-        phone: emp.phone,
-        shifts,
-      });
-    }
-  }
-  return [...byEmployee.values()];
-}
-
 const SHIFTS: Shift[] = ["AM", "PM"];
 
 type Props = {
@@ -66,11 +44,14 @@ type Props = {
   view: "day" | "week";
   days: string[];
   today: string;
-  companyName: string;
   customers: BoardCustomer[];
   employees: BoardEmployee[];
   assignments: BoardAssignment[];
   timeOff: TimeOff[];
+  // Published dates that were edited but not re-published (from drafts).
+  unsentDates: string[];
+  // Who is on call for the viewed week (from its latest publish), if anyone.
+  onCallName: string | null;
 };
 
 // Encodes a board cell as a droppable id: "customerId|date|shift".
@@ -131,17 +112,21 @@ export default function Board({
   view,
   days,
   today,
-  companyName,
   customers,
   employees,
   assignments: serverAssignments,
   timeOff,
+  unsentDates,
+  onCallName,
 }: Props) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState("");
+  // Dismissing the "changes not emailed" banner hides it until the page is
+  // next opened; the unsent state itself is untouched.
+  const [unsentDismissed, setUnsentDismissed] = useState(false);
   const [notesFor, setNotesFor] = useState<BoardAssignment | null>(null);
-  const [publishOpen, setPublishOpen] = useState(false);
+  const [weekPublishOpen, setWeekPublishOpen] = useState(false);
   const [confirm, setConfirm] = useState<{
     message: string;
     action: () => void;
@@ -192,7 +177,7 @@ export default function Board({
   }
 
   function navigate(nextDate: string, nextView: "day" | "week") {
-    router.push(`/?date=${nextDate}&view=${nextView}`);
+    router.push(`/schedule?date=${nextDate}&view=${nextView}`);
   }
 
   // Run a server action, applying an optimistic board change first. The
@@ -209,6 +194,12 @@ export default function Board({
       if (res.error) setError(res.error);
       else router.refresh();
     });
+  }
+
+  // Pin/unpin a customer to the top of the board. The main process caps it at 3;
+  // if that fails, run() surfaces the message in the dismissible warning banner.
+  function togglePin(c: BoardCustomer) {
+    run(() => setCustomerPinned(c.id, !c.is_pinned));
   }
 
   function doAssign(
@@ -301,9 +292,10 @@ export default function Board({
       <Toolbar
         date={date}
         view={view}
+        today={today}
         pending={pending}
         onNavigate={navigate}
-        onPublish={() => setPublishOpen(true)}
+        onPublishWeek={() => setWeekPublishOpen(true)}
         onCopyWeek={() =>
           run(async () => {
             const res = await copyWeek(date);
@@ -316,25 +308,51 @@ export default function Board({
       />
 
       {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{error}</p>
+        <div className="flex items-start justify-between gap-3 rounded-lg bg-red-50 px-3 py-2 text-red-700">
+          <span>{error}</span>
+          <button
+            onClick={() => setError("")}
+            className="shrink-0 rounded p-0.5 text-red-400 hover:bg-red-100 hover:text-red-700"
+            title="Dismiss"
+            aria-label="Dismiss"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
+      {onCallName && (
+        <div className="rounded-lg bg-blue-50 px-3 py-2 text-blue-800">
+          <span className="font-medium">On call this week:</span> {onCallName}
+        </div>
+      )}
+
+      {!unsentDismissed && (
+        <UnsentBanner
+          unsentDates={unsentDates}
+          currentWeekStart={weekStart(date)}
+          onNavigate={(d) => navigate(d, "week")}
+          onPublishWeek={() => setWeekPublishOpen(true)}
+          onDismiss={() => setUnsentDismissed(true)}
+        />
       )}
 
       <DndContext sensors={sensors} onDragEnd={handleDragEnd}>
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[calc(100vh-12rem)] overflow-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full border-collapse text-left">
-            <thead className="bg-slate-50 text-sm text-slate-500">
+            <thead className="text-sm text-slate-500">
               <tr>
-                <th className="sticky left-0 z-10 bg-slate-50 px-4 py-3 font-medium">
+                <th className="sticky left-0 top-0 z-30 bg-slate-50 px-4 py-3 font-medium">
                   Customer
                 </th>
                 {view === "day"
                   ? SHIFTS.map((s) => (
-                      <th key={s} className="px-4 py-3 font-medium">
+                      <th key={s} className="sticky top-0 z-20 bg-slate-50 px-4 py-3 font-medium">
                         {s === "AM" ? "Morning" : "Afternoon"}
                       </th>
                     ))
                   : days.map((d) => (
-                      <th key={d} className="px-3 py-3 text-center font-medium">
+                      <th key={d} className="sticky top-0 z-20 bg-slate-50 px-3 py-3 text-center font-medium">
                         <div>{weekdayShort(d)}</div>
                         <div className="text-slate-400">{monthDayShort(d)}</div>
                       </th>
@@ -345,16 +363,54 @@ export default function Board({
               {customers.map((c) => (
                 <tr key={c.id} className="border-t border-slate-100 align-top">
                   <td className="sticky left-0 z-10 bg-white px-4 py-3">
-                    <span className="flex items-center gap-2 font-medium">
-                      <span
-                        className="inline-block h-3 w-3 shrink-0 rounded-full"
-                        style={{ backgroundColor: c.color }}
-                      />
-                      {c.name}
-                    </span>
-                    {c.address && (
-                      <div className="text-sm text-slate-500">{c.address}</div>
-                    )}
+                    <div className="w-44">
+                      <span className="flex items-center gap-2 font-medium">
+                        <span
+                          className="inline-block h-3 w-3 shrink-0 rounded-full"
+                          style={{ backgroundColor: c.color }}
+                        />
+                        <span className="min-w-0 flex-1 truncate" title={c.name}>
+                          {c.name}
+                        </span>
+                        <button
+                          onClick={() => togglePin(c)}
+                          disabled={pending}
+                          title={c.is_pinned ? "Unpin from top" : "Pin to top of the board"}
+                          aria-label={c.is_pinned ? "Unpin from top" : "Pin to top"}
+                          className={`shrink-0 rounded p-0.5 ${
+                            c.is_pinned
+                              ? "text-amber-500 hover:text-amber-600"
+                              : "text-slate-300 hover:text-slate-500"
+                          }`}
+                        >
+                          <svg
+                            viewBox="0 0 24 24"
+                            className="h-4 w-4"
+                            fill={c.is_pinned ? "currentColor" : "none"}
+                            stroke="currentColor"
+                            strokeWidth="1.6"
+                            aria-hidden
+                          >
+                            <path strokeLinejoin="round" d="M9.5 3h5l-.7 5.2 2.7 2.6v1.7H7.5v-1.7l2.7-2.6L9.5 3z" />
+                            <path strokeLinecap="round" d="M12 13.5V21" />
+                          </svg>
+                        </button>
+                      </span>
+                      {/* One truncated line each; the full address is in the tooltip. */}
+                      {c.address && (
+                        <div
+                          className="mt-1 truncate text-[11px] leading-4 text-slate-400"
+                          title={c.address}
+                        >
+                          {c.address}
+                        </div>
+                      )}
+                      {customerHoursLabel(c) && (
+                        <div className="text-[11px] leading-4 text-slate-400">
+                          {customerHoursLabel(c)!.replace(" to ", "–")}
+                        </div>
+                      )}
+                    </div>
                   </td>
 
                   {view === "day"
@@ -393,6 +449,7 @@ export default function Board({
                             doAssign(c.id, empId, day, shift)
                           }
                           onUnassign={(id) => doUnassign(id)}
+                          onNotes={(a) => setNotesFor(a)}
                         />
                       ))}
                 </tr>
@@ -401,6 +458,27 @@ export default function Board({
           </table>
         </div>
       </DndContext>
+
+      {/* Legend: what the little marks on the assignment chips mean. */}
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-1 px-1 text-xs text-slate-500">
+        <span className="flex items-center gap-1.5">
+          <span className="text-green-700">✓</span> Emailed
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="inline-block h-2 w-2 rounded-full bg-amber-400" /> Not
+          emailed yet
+        </span>
+        <span className="flex items-center gap-1.5">
+          <span className="text-slate-400">✕</span> Remove
+        </span>
+        <span className="flex items-center gap-1.5">🔒 Already working this shift</span>
+        <span className="flex items-center gap-1.5">
+          <span className="rounded bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
+            time off
+          </span>
+          Scheduled despite time off
+        </span>
+      </div>
 
       {confirm && (
         <ConfirmDialog
@@ -430,25 +508,68 @@ export default function Board({
         />
       )}
 
-      {publishOpen && (
-        <PublishPanel
-          date={date}
-          companyName={companyName}
-          assignedEmployees={employees.filter((e) =>
-            assignments.some(
-              (a) => a.work_date === date && a.employee_id === e.id
-            )
-          )}
-          allEmployees={employees}
-          previewEmployees={buildPreviewEmployees(
-            date,
-            employees,
-            customers,
-            assignments
-          )}
-          onClose={() => setPublishOpen(false)}
+      {weekPublishOpen && (
+        <WeekPublishPanel
+          days={weekDays(date)}
+          onClose={() => setWeekPublishOpen(false)}
         />
       )}
+    </div>
+  );
+}
+
+// Points the owner at published weeks whose schedule was edited after sending,
+// so a change always ends in a fresh email to everyone.
+function UnsentBanner({
+  unsentDates,
+  currentWeekStart,
+  onNavigate,
+  onPublishWeek,
+  onDismiss,
+}: {
+  unsentDates: string[];
+  currentWeekStart: string;
+  onNavigate: (date: string) => void;
+  onPublishWeek: () => void;
+  onDismiss: () => void;
+}) {
+  const weeks = [...new Set(unsentDates.map(weekStart))].sort();
+  if (weeks.length === 0) return null;
+  return (
+    <div className="flex items-start justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
+      <div>
+      <span className="font-medium">Changes not emailed yet.</span> The schedule
+      was edited after it was sent for:
+      <span className="ml-1 inline-flex flex-wrap gap-2 align-middle">
+        {weeks.map((w) =>
+          w === currentWeekStart ? (
+            <button
+              key={w}
+              onClick={onPublishWeek}
+              className="rounded bg-amber-100 px-2 py-0.5 font-medium underline hover:bg-amber-200"
+            >
+              week of {formatUsDate(w)} — send the update
+            </button>
+          ) : (
+            <button
+              key={w}
+              onClick={() => onNavigate(w)}
+              className="rounded bg-amber-100 px-2 py-0.5 font-medium underline hover:bg-amber-200"
+            >
+              week of {formatUsDate(w)} — open it
+            </button>
+          )
+        )}
+      </span>
+      </div>
+      <button
+        onClick={onDismiss}
+        className="shrink-0 rounded p-0.5 text-amber-400 hover:bg-amber-100 hover:text-amber-700"
+        title="Dismiss"
+        aria-label="Dismiss"
+      >
+        ✕
+      </button>
     </div>
   );
 }
@@ -456,37 +577,74 @@ export default function Board({
 function Toolbar({
   date,
   view,
+  today,
   pending,
   onNavigate,
-  onPublish,
+  onPublishWeek,
   onCopyWeek,
 }: {
   date: string;
   view: "day" | "week";
+  today: string;
   pending: boolean;
   onNavigate: (date: string, view: "day" | "week") => void;
-  onPublish: () => void;
+  onPublishWeek: () => void;
   onCopyWeek: () => void;
 }) {
   const step = view === "week" ? 7 : 1;
+
+  // Calendar-style heading: "Friday, July 17, 2026" for a day, "July 12 – 18,
+  // 2026" for a week (month repeated only when the week spans two months).
+  const d = new Date(date + "T00:00:00");
+  let label: string;
+  if (view === "day") {
+    label = d.toLocaleDateString("en-US", {
+      weekday: "long",
+      month: "long",
+      day: "numeric",
+    });
+  } else {
+    const days = weekDays(date);
+    const s = new Date(days[0] + "T00:00:00");
+    const e = new Date(days[6] + "T00:00:00");
+    const startLabel = s.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    const endLabel =
+      s.getMonth() === e.getMonth()
+        ? String(e.getDate())
+        : e.toLocaleDateString("en-US", { month: "long", day: "numeric" });
+    label = `${startLabel} – ${endLabel}`;
+  }
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-3">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="secondary"
-          onClick={() => onNavigate(addDays(date, -step), view)}
-        >
-          ‹ Prev
-        </Button>
-        <h1 className="min-w-48 text-center text-2xl font-bold">
-          {formatDayLabel(date)}
+      <div className="flex items-center gap-3">
+        <div className="flex items-stretch overflow-hidden rounded-lg border border-slate-300 bg-white">
+          <button
+            onClick={() => onNavigate(addDays(date, -step), view)}
+            className="px-2.5 py-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            title={view === "week" ? "Previous week" : "Previous day"}
+            aria-label="Previous"
+          >
+            ‹
+          </button>
+          <button
+            onClick={() => onNavigate(today, view)}
+            className="border-x border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-100"
+          >
+            Today
+          </button>
+          <button
+            onClick={() => onNavigate(addDays(date, step), view)}
+            className="px-2.5 py-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-800"
+            title={view === "week" ? "Next week" : "Next day"}
+            aria-label="Next"
+          >
+            ›
+          </button>
+        </div>
+        <h1 className="text-xl font-bold tracking-tight text-slate-900">
+          {label}, {d.getFullYear()}
         </h1>
-        <Button
-          variant="secondary"
-          onClick={() => onNavigate(addDays(date, step), view)}
-        >
-          Next ›
-        </Button>
       </div>
 
       <div className="flex items-center gap-2">
@@ -515,11 +673,10 @@ function Toolbar({
             Copy week → next
           </Button>
         )}
-        {view === "day" && (
-          <Button disabled={pending} onClick={onPublish}>
-            Publish day
-          </Button>
-        )}
+        {/* Publishing is always per week: one send, everyone gets the whole week. */}
+        <Button disabled={pending} onClick={onPublishWeek}>
+          Publish week
+        </Button>
       </div>
     </div>
   );
@@ -555,7 +712,7 @@ function Cell({
   const { setNodeRef, isOver } = useDroppable({
     id: cellId(customer.id, day, shift),
   });
-  const closed = customerClosed(customer, shift);
+  const closed = closedReason(customer, shift);
 
   return (
     <td
@@ -577,7 +734,7 @@ function Cell({
         <AssignSelect
           employees={employees}
           onAssign={onAssign}
-          hint={closed ? "Site closed this shift" : null}
+          hint={closed}
         />
       )}
     </td>
@@ -595,6 +752,7 @@ function WeekDayCell({
   timeOff,
   onAssign,
   onUnassign,
+  onNotes,
 }: {
   customer: BoardCustomer;
   day: string;
@@ -605,9 +763,10 @@ function WeekDayCell({
   timeOff: TimeOff[];
   onAssign: (employeeId: string, shift: Shift) => void;
   onUnassign: (id: string) => void;
+  onNotes: (a: BoardAssignment) => void;
 }) {
   return (
-    <td className="px-2 py-3 align-top" style={{ minWidth: 150 }}>
+    <td className="group px-2 py-3 align-top" style={{ minWidth: 176 }}>
       <div className="space-y-2">
         {assignments.map(({ shift, assignment }) => (
           <WeekShiftSlot
@@ -622,6 +781,7 @@ function WeekDayCell({
             timeOff={timeOff}
             onAssign={(empId) => onAssign(empId, shift)}
             onUnassign={onUnassign}
+            onNotes={onNotes}
           />
         ))}
       </div>
@@ -640,6 +800,7 @@ function WeekShiftSlot({
   timeOff,
   onAssign,
   onUnassign,
+  onNotes,
 }: {
   customer: BoardCustomer;
   day: string;
@@ -651,19 +812,17 @@ function WeekShiftSlot({
   timeOff: TimeOff[];
   onAssign: (employeeId: string) => void;
   onUnassign: (id: string) => void;
+  onNotes: (a: BoardAssignment) => void;
 }) {
   const { setNodeRef, isOver } = useDroppable({
     id: cellId(customer.id, day, shift),
   });
-  const closed = customerClosed(customer, shift);
+  const closed = closedReason(customer, shift);
   return (
     <div
       ref={setNodeRef}
       className={`rounded-lg p-1 ${isOver ? "bg-blue-50" : ""}`}
     >
-      <div className="mb-0.5 text-xs font-medium text-slate-400">
-        {shift === "AM" ? "Morning" : "Afternoon"}
-      </div>
       {assignment ? (
         <AssignmentChip
           assignment={assignment}
@@ -671,15 +830,16 @@ function WeekShiftSlot({
           onTimeOff={onTimeOff(assignment.employee_id, day, timeOff)}
           closed={closed}
           atWork={atWork(assignment)}
+          shiftTag={shift}
           onUnassign={() => onUnassign(assignment.id)}
-          onNotes={null}
+          onNotes={() => onNotes(assignment)}
         />
       ) : (
-        <AssignSelect
-          employees={employees}
-          onAssign={onAssign}
-          hint={closed ? "Closed" : null}
-        />
+        // Empty slots stay invisible until the day column is hovered (or the
+        // hidden select is focused), so an empty board reads as calm space.
+        <div className="opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100">
+          <AssignSelect employees={employees} onAssign={onAssign} hint={closed} shiftTag={shift} />
+        </div>
       )}
     </div>
   );
@@ -691,14 +851,17 @@ function AssignmentChip({
   onTimeOff: isOff,
   closed,
   atWork,
+  shiftTag = null,
   onUnassign,
   onNotes,
 }: {
   assignment: BoardAssignment;
   employee: BoardEmployee | undefined;
   onTimeOff: boolean;
-  closed: boolean;
+  closed: string | null; // closed-reason text (with time), or null if covered
   atWork: boolean;
+  // Week view shows AM/PM inside the chip (the day view has column headers).
+  shiftTag?: Shift | null;
   onUnassign: () => void;
   onNotes: (() => void) | null;
 }) {
@@ -711,20 +874,13 @@ function AssignmentChip({
   const stopDrag = (e: React.PointerEvent) => e.stopPropagation();
 
   const published = assignment.status === "published";
-  // At-work chips get a ring so they read as "locked in / don't touch".
-  const border = atWork
-    ? "border-slate-200 ring-2 ring-amber-300"
-    : published
-      ? "border-slate-200"
-      : "border-dashed border-slate-400";
 
-  // Status badges, right-aligned on the name line so they don't add height.
+  // Sent is the normal state, so it's a quiet check; unsent gets an amber dot;
+  // at-work keeps the ring + lock. Warnings (time off / closed) stay as badges.
   const badges: { label: string; cls: string }[] = [];
-  if (atWork) badges.push({ label: "at work", cls: "bg-amber-100 text-amber-800" });
-  else if (published) badges.push({ label: "sent", cls: "bg-green-100 text-green-800" });
-  else badges.push({ label: "not sent", cls: "bg-slate-100 text-slate-500" });
   if (isOff) badges.push({ label: "time off", cls: "bg-amber-100 text-amber-800" });
   if (closed) badges.push({ label: "closed", cls: "bg-amber-100 text-amber-800" });
+  // `closed` carries the timed reason ("Closed PM, shuts 11:00"); shown below.
 
   return (
     <div
@@ -732,21 +888,46 @@ function AssignmentChip({
       {...listeners}
       {...attributes}
       title={atWork ? "Already working this shift today" : undefined}
-      className={`cursor-grab rounded-lg border p-2 active:cursor-grabbing ${
+      className={`cursor-grab rounded-lg p-2 text-sm active:cursor-grabbing ${
         isDragging ? "opacity-50" : ""
-      } ${border}`}
-      style={{
-        backgroundColor: (employee?.color ?? "#64748b") + "22",
-        borderLeft: `4px solid ${employee?.color ?? "#64748b"}`,
-      }}
+      } ${atWork ? "ring-2 ring-amber-300" : ""}`}
+      style={{ backgroundColor: (employee?.color ?? "#64748b") + "22" }}
     >
-      <div className="flex items-center gap-2">
-        <span className="flex min-w-0 items-center gap-1 font-medium">
-          {atWork && <span title="At work">🔒</span>}
-          <span className="truncate">{employee?.name ?? "Unknown"}</span>
+      {/* One line: AM/PM tag, name, status icon, remove. */}
+      <div className="flex items-center gap-1.5">
+        {shiftTag && (
+          <span className="shrink-0 rounded bg-white/70 px-1 text-[10px] font-semibold text-slate-500">
+            {shiftTag}
+          </span>
+        )}
+        {atWork && <span title="At work">🔒</span>}
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {employee?.name ?? "Unknown"}
         </span>
-        {/* Badges pushed to the right, on the same line as the name. */}
-        <span className="ml-auto flex shrink-0 items-center gap-1">
+        {!atWork &&
+          (published ? (
+            <span className="shrink-0 text-green-700" title="Emailed">
+              ✓
+            </span>
+          ) : (
+            <span
+              className="h-2 w-2 shrink-0 rounded-full bg-amber-400"
+              title="Not emailed yet"
+            />
+          ))}
+        <button
+          onClick={onUnassign}
+          onPointerDown={stopDrag}
+          className="shrink-0 text-slate-400 hover:text-red-600"
+          title="Remove"
+        >
+          ✕
+        </button>
+      </div>
+
+      {/* Warning badges only; they wrap so they never squeeze the name. */}
+      {badges.length > 0 && (
+        <div className="mt-1 flex flex-wrap gap-1">
           {badges.map((b) => (
             <span
               key={b.label}
@@ -755,17 +936,12 @@ function AssignmentChip({
               {b.label}
             </span>
           ))}
-          <button
-            onClick={onUnassign}
-            onPointerDown={stopDrag}
-            className="text-slate-400 hover:text-red-600"
-            title="Remove"
-          >
-            ✕
-          </button>
-        </span>
-      </div>
+        </div>
+      )}
 
+      {closed && (
+        <div className="mt-0.5 text-xs text-amber-700">{closed}</div>
+      )}
       {assignment.notes && (
         <div className="mt-0.5 truncate text-sm text-slate-600">
           {assignment.notes}
@@ -788,19 +964,21 @@ function AssignSelect({
   employees,
   onAssign,
   hint,
+  shiftTag = null,
 }: {
   employees: BoardEmployee[];
   onAssign: (employeeId: string) => void;
   hint: string | null;
+  shiftTag?: Shift | null;
 }) {
   return (
     <div>
       <select
         value=""
         onChange={(e) => e.target.value && onAssign(e.target.value)}
-        className="w-full rounded-lg border border-slate-300 px-2 py-1.5 text-slate-600"
+        className="w-full cursor-pointer rounded-lg border border-dashed border-slate-300 bg-transparent px-2 py-1 text-sm text-slate-400 hover:border-slate-400 hover:text-slate-600"
       >
-        <option value="">+ Assign…</option>
+        <option value="">{shiftTag ? `+ ${shiftTag}` : "+ Assign..."}</option>
         {employees.map((e) => (
           <option key={e.id} value={e.id}>
             {e.name}

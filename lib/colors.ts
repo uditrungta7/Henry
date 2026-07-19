@@ -48,11 +48,6 @@ export function colorForIndex(i: number): string {
   return hslToHex(hue, sat, light);
 }
 
-// N genuinely distinct colors (palette + generated hues).
-export function distinctColors(count: number): string[] {
-  return Array.from({ length: count }, (_, i) => colorForIndex(i));
-}
-
 // First color not already used (case-insensitive). Walks generated colors so
 // even past the curated palette every new record gets a fresh, distinct color.
 export function nextUnusedColor(used: (string | null | undefined)[]): string {

@@ -1,32 +1,111 @@
 {
   "name": "henry",
-  "version": "0.1.0",
+  "productName": "Henry",
+  "version": "1.0.0",
   "private": true,
+  "description": "Plan the week, press send, and every crew member knows where to be.",
+  "author": "Udit R.",
+  "main": "dist-electron/main.js",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "seed": "tsx scripts/seed.ts"
+    "electron:compile": "node -e \"require('fs').rmSync('dist-electron',{recursive:true,force:true})\" && tsc -p electron",
+    "electron:dev": "concurrently -k -n next,electron -c blue,magenta \"next dev\" \"npm run electron:wait\"",
+    "electron:wait": "wait-on http://localhost:3000 && npm run electron:compile && env -u ELECTRON_RUN_AS_NODE ELECTRON_DEV=1 electron .",
+    "electron:start": "npm run build && npm run electron:compile && env -u ELECTRON_RUN_AS_NODE electron .",
+    "dist": "npm run build && npm run electron:compile && electron-builder --mac",
+    "dist:win": "npm run build && npm run electron:compile && electron-builder --win --x64",
+    "dist:all": "npm run build && npm run electron:compile && electron-builder --mac dmg --arm64 && electron-builder --mac dmg --x64 && electron-builder --win --x64",
+    "pack": "npm run build && npm run electron:compile && electron-builder --mac --dir"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",
-    "@supabase/ssr": "^0.5.2",
-    "@supabase/supabase-js": "^2.45.4",
+    "better-sqlite3": "^11.10.0",
     "next": "14.2.35",
+    "node-machine-id": "^1.1.12",
+    "nodemailer": "^6.10.1",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
+    "@electron/rebuild": "^4.0.4",
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20.16.11",
+    "@types/nodemailer": "^8.0.1",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",
     "autoprefixer": "^10.4.20",
+    "concurrently": "^10.0.3",
+    "cross-env": "^10.1.0",
+    "electron": "^33.4.11",
+    "electron-builder": "^25.1.8",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
     "tsx": "^4.19.1",
-    "typescript": "^5.6.3"
+    "typescript": "^5.6.3",
+    "wait-on": "^9.0.10"
+  },
+  "build": {
+    "appId": "team.enactus.henry",
+    "productName": "Henry",
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist-electron/**",
+      "out/**",
+      "package.json",
+      "!**/*.map",
+      "!node_modules/next/**",
+      "!node_modules/@next/**",
+      "!node_modules/@swc/**",
+      "!node_modules/react/**",
+      "!node_modules/react-dom/**",
+      "!node_modules/scheduler/**",
+      "!node_modules/styled-jsx/**",
+      "!node_modules/client-only/**",
+      "!node_modules/caniuse-lite/**",
+      "!node_modules/@dnd-kit/**",
+      "!node_modules/xlsx/**",
+      "!node_modules/.cache/**",
+      "!**/.claude/**",
+      "!**/.github/**",
+      "!**/{test,tests,__tests__,example,examples,doc,docs}/**",
+      "!**/*.md",
+      "!**/*.markdown",
+      "!**/*.{xlsx,xls,csv,docx,db,sqlite,sqlite3}"
+    ],
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
+    "extraResources": [
+      { "from": "Henry-Setup-Guide.html", "to": "docs/Henry-Setup-Guide.html" },
+      { "from": "Henry-Operations-Guide.docx", "to": "docs/Henry-Operations-Guide.docx" }
+    ],
+    "mac": {
+      "category": "public.app-category.business",
+      "target": ["dmg"],
+      "icon": "build/icon.icns",
+      "identity": null,
+      "artifactName": "${productName}-${arch}.${ext}"
+    },
+    "win": {
+      "target": ["nsis"],
+      "icon": "build/icon.ico"
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "deleteAppDataOnUninstall": false,
+      "shortcutName": "Henry",
+      "artifactName": "Install ${productName}.${ext}",
+      "installerIcon": "build/icon.ico",
+      "uninstallerIcon": "build/icon.ico"
+    }
   }
 }

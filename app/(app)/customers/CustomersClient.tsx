@@ -65,7 +65,7 @@ export default function CustomersClient({
 
       <div className="flex flex-wrap items-center gap-3">
         <Input
-          placeholder="Search by name or address…"
+          placeholder="Search by name or address..."
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           className="max-w-xs"
@@ -87,14 +87,14 @@ export default function CustomersClient({
           onAdd={() => setEditing("new")}
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-slate-200 bg-white">
+        <div className="max-h-[calc(100vh-13rem)] overflow-auto rounded-xl border border-slate-200 bg-white">
           <table className="w-full text-left">
-            <thead className="sticky top-0 z-10 bg-slate-50 text-sm text-slate-500">
+            <thead className="text-sm text-slate-500">
               <tr>
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Address</th>
-                <th className="px-4 py-2 font-medium">Hours</th>
-                <th className="px-4 py-2"></th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Name</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Address</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2 font-medium">Hours</th>
+                <th className="sticky top-0 z-10 bg-slate-50 px-4 py-2"></th>
               </tr>
             </thead>
             <tbody>
@@ -109,11 +109,11 @@ export default function CustomersClient({
                       {c.name}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-slate-600">{c.address ?? "—"}</td>
+                  <td className="px-4 py-2 text-slate-600">{c.address ?? "-"}</td>
                   <td className="px-4 py-2 text-slate-600">
                     {c.open_start && c.open_end
-                      ? `${formatTime(c.open_start)}–${formatTime(c.open_end)}`
-                      : "—"}
+                      ? `${formatTime(c.open_start)} to ${formatTime(c.open_end)}`
+                      : "-"}
                   </td>
                   <td className="px-4 py-2 text-right">
                     <div className="flex justify-end gap-2">
@@ -317,7 +317,7 @@ function CustomerForm({
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving..." : "Save"}
           </Button>
         </div>
       </form>

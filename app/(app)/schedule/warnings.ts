@@ -38,6 +38,23 @@ export function customerClosed(
   return end <= "12:00";
 }
 
+// "8:00 to 16:00" for the site's open hours, or null if hours aren't set.
+export function customerHoursLabel(customer: BoardCustomer): string | null {
+  const { open_start, open_end } = customer;
+  if (!open_start || !open_end) return null;
+  return `${open_start.slice(0, 5)} to ${open_end.slice(0, 5)}`;
+}
+
+// A short reason with the actual time when a shift isn't covered by open hours,
+// e.g. "Closed AM (opens 13:00)" or "Closed PM (shuts 11:00"). null if covered.
+export function closedReason(customer: BoardCustomer, shift: Shift): string | null {
+  if (!customerClosed(customer, shift)) return null;
+  if (shift === "AM") {
+    return `Closed AM (opens ${customer.open_start!.slice(0, 5)})`;
+  }
+  return `Closed PM (shuts ${customer.open_end!.slice(0, 5)})`;
+}
+
 // Which shift, if any, is currently underway or already over TODAY. Used to
 // guard "people who are at / have been at work" from accidental edits.
 //  - Before noon: AM is current (in progress); PM hasn't started.
@@ -54,7 +71,7 @@ export function shiftPhaseNow(now: Date): ShiftPhase {
 
 // An assignment is "at work" (locked against accidental change) when it is
 // PUBLISHED, dated TODAY, and its shift is current or already past. These are
-// people actually out on the job — changing them is almost always a mistake.
+// people actually out on the job, changing them is almost always a mistake.
 export function isAtWork(
   assignment: Pick<BoardAssignment, "status" | "work_date" | "shift">,
   today: string,

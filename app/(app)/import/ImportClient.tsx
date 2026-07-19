@@ -16,13 +16,14 @@ import {
   type CustomerField,
   type EmployeeField,
 } from "@/lib/import/schema";
+import { importRecords } from "./actions";
 
 type Parsed = {
   customerHeaders: string[];
   customerRows: Record<string, unknown>[];
   employeeHeaders: string[];
   employeeRows: Record<string, unknown>[];
-  colors: [string, string][]; // [lower(name), hex] — serializable for state
+  colors: [string, string][]; // [lower(name), hex], serializable for state
 };
 
 type Result = {
@@ -62,7 +63,7 @@ export default function ImportClient() {
       const cust = readSheet(wb, CUSTOMER_SHEET);
       const emp = readSheet(wb, EMPLOYEE_SHEET);
 
-      // Customer colors from the FORMATTING COLOR sheet's cell fills (best-effort).
+      // Customer colors from the FORMATTING COLOR sheet's cell fills.
       const colorSheet = wb.Sheets[COLOR_SHEET];
       const colors = colorSheet
         ? [...colorsByName(colorSheet as never).entries()]
@@ -109,14 +110,9 @@ export default function ImportClient() {
         .map((r) => toEmployee(r, empMap))
         .filter((e) => e.name.trim());
 
-      const res = await fetch("/api/import", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ customers, employees }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error ?? "Import failed.");
+      const data = await importRecords({ customers, employees });
+      if ("error" in data && data.error) {
+        setError(data.error);
         return;
       }
       setResult(data as Result);
@@ -129,7 +125,7 @@ export default function ImportClient() {
   // ---- Results screen ----
   if (result) {
     return (
-      <div className="space-y-4">
+      <div className="mx-auto max-w-3xl space-y-4">
         <h1 className="text-3xl font-bold">Import complete</h1>
         <ul className="space-y-1 text-lg text-slate-700">
           <li>Customers added: {result.customersAdded}</li>
@@ -203,13 +199,13 @@ export default function ImportClient() {
                 title={c.color}
               />
             ) : (
-              "—"
+              "-"
             ),
             c.name,
-            c.address ?? "—",
-            c.contact_name ?? "—",
-            c.open_start ?? "—",
-            c.open_end ?? "—",
+            c.address ?? "-",
+            c.contact_name ?? "-",
+            c.open_start ?? "-",
+            c.open_end ?? "-",
           ])}
           total={customerPreview.length}
         />
@@ -236,11 +232,11 @@ export default function ImportClient() {
           columns={["Name", "EID", "Role", "E-Rating", "City", "State", "Email"]}
           rows={employeePreview.slice(0, 8).map((e) => [
             e.name,
-            e.eid ?? "—",
-            e.role ?? "—",
-            e.rating != null ? String(e.rating) : "—",
-            e.city ?? "—",
-            e.state ?? "—",
+            e.eid ?? "-",
+            e.role ?? "-",
+            e.rating != null ? String(e.rating) : "-",
+            e.city ?? "-",
+            e.state ?? "-",
             e.missingEmail ? "⚠ missing" : e.email!,
           ])}
           total={employeePreview.length}
@@ -253,7 +249,7 @@ export default function ImportClient() {
             className="rounded-lg bg-blue-600 px-5 py-3 text-lg font-semibold text-white hover:bg-blue-700 disabled:opacity-60"
           >
             {submitting
-              ? "Importing…"
+              ? "Importing..."
               : `Import ${customerPreview.length} customers and ${employeePreview.length} employees`}
           </button>
           <button
@@ -269,13 +265,12 @@ export default function ImportClient() {
 
   // ---- Drop zone ----
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-3xl space-y-6">
       <header>
         <h1 className="text-3xl font-bold">Import from a spreadsheet</h1>
-        <p className="text-slate-600">
-          Drop your Excel file below. We&apos;ll read the{" "}
-          <span className="font-medium">{CUSTOMER_SHEET}</span> and{" "}
-          <span className="font-medium">{EMPLOYEE_SHEET}</span> sheets.
+        <p className="mt-1 text-slate-600">
+          Bring your customers and employees in from an Excel file. Nothing is
+          saved until you review the matched columns on the next step.
         </p>
       </header>
 
@@ -283,24 +278,80 @@ export default function ImportClient() {
         <p className="rounded-lg bg-red-50 px-3 py-2 text-red-700">{error}</p>
       )}
 
-      <div
-        onDrop={onDrop}
-        onDragOver={(e) => e.preventDefault()}
-        onClick={() => inputRef.current?.click()}
-        className="flex min-h-64 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-10 text-center hover:border-blue-400"
-      >
-        <p className="text-xl font-medium">Drop your .xlsx file here</p>
-        <p className="mt-1 text-slate-500">or click to choose a file</p>
-        <input
-          ref={inputRef}
-          type="file"
-          accept=".xlsx"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) handleFile(file);
-          }}
-        />
+      <div className="grid gap-6 md:grid-cols-[1.4fr_1fr]">
+        {/* Drop zone: smaller, so the page doesn't read as empty. */}
+        <div
+          onDrop={onDrop}
+          onDragOver={(e) => e.preventDefault()}
+          onClick={() => inputRef.current?.click()}
+          className="flex min-h-52 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 bg-white p-8 text-center transition-colors hover:border-blue-400 hover:bg-blue-50/40"
+        >
+          <svg
+            className="mb-3 h-10 w-10 text-slate-400"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            aria-hidden
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16V4m0 0L8 8m4-4l4 4" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
+          </svg>
+          <p className="text-lg font-semibold">Drop your .xlsx file here</p>
+          <p className="mt-1 text-slate-500">or click to choose a file</p>
+          <input
+            ref={inputRef}
+            type="file"
+            accept=".xlsx"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFile(file);
+            }}
+          />
+        </div>
+
+        {/* Format guidance, so a non-technical owner knows exactly what to upload. */}
+        <aside className="rounded-2xl border border-slate-200 bg-white p-5">
+          <h2 className="text-sm font-semibold text-slate-700">
+            What your file should look like
+          </h2>
+          <ul className="mt-3 space-y-3 text-sm text-slate-600">
+            <li className="flex gap-2">
+              <span className="text-slate-400">1.</span>
+              <span>
+                An Excel workbook (<span className="font-medium">.xlsx</span>) — the
+                kind Excel, Google Sheets, or Numbers export.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-slate-400">2.</span>
+              <span>
+                A sheet named{" "}
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+                  {CUSTOMER_SHEET}
+                </span>{" "}
+                for your sites, and one named{" "}
+                <span className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-xs">
+                  {EMPLOYEE_SHEET}
+                </span>{" "}
+                for your team.
+              </span>
+            </li>
+            <li className="flex gap-2">
+              <span className="text-slate-400">3.</span>
+              <span>
+                A header row on top (Name, Address, Email, and so on). You&apos;ll
+                match those columns on the next step, so exact names aren&apos;t
+                required.
+              </span>
+            </li>
+          </ul>
+          <p className="mt-4 border-t border-slate-100 pt-3 text-xs text-slate-500">
+            Only these two sheets are read. Importing again updates existing
+            records by name instead of creating duplicates.
+          </p>
+        </aside>
       </div>
     </div>
   );
@@ -329,7 +380,7 @@ function MappingTable<F extends string>({
   }
   return (
     <section>
-      <h2 className="mb-2 text-xl font-semibold">{title} — column matching</h2>
+      <h2 className="mb-2 text-xl font-semibold">{title}: column matching</h2>
       <div className="grid gap-2 sm:grid-cols-2">
         {fields.map((f) => (
           <label key={f.field} className="flex items-center gap-2">
@@ -342,7 +393,7 @@ function MappingTable<F extends string>({
               onChange={(e) => onChange(f.field, e.target.value || null)}
               className="flex-1 rounded-lg border border-slate-300 px-2 py-1.5"
             >
-              <option value="">— not imported —</option>
+              <option value="">(not imported)</option>
               {headers.map((h) => (
                 <option key={h} value={h}>
                   {h}
@@ -391,7 +442,7 @@ function PreviewTable({
       </table>
       {total > rows.length && (
         <p className="px-3 py-2 text-slate-500">
-          …and {total - rows.length} more.
+          ...and {total - rows.length} more.
         </p>
       )}
     </div>

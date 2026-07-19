@@ -1,5 +1,8 @@
 node_modules
 .next
+out
+dist-electron
+release
 .env.local
 .env
 *.log
@@ -14,3 +17,6 @@ next-env.d.ts
 
 # TS incremental build info
 *.tsbuildinfo
+
+# Local smoke-test scratch (not part of the app)
+.smoke

@@ -1,0 +1,56 @@
+name: Build installers
+
+# Produces the macOS .dmg and the Windows .exe on their own native runners.
+# A native-module Electron app (better-sqlite3) cannot be cross-built reliably
+# from one OS to the other, so each installer is built on its matching OS.
+#
+# Run it: push a tag like v1.0.0, or trigger manually from the Actions tab.
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+jobs:
+  macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run electron:compile
+      # Build one arch per invocation, purging the native module between them:
+      # electron-builder caches better-sqlite3 by arch and would otherwise reuse
+      # the wrong binary for the second arch.
+      - run: npx electron-builder --mac --arm64 --publish never
+      - run: rm -rf node_modules/better-sqlite3/build node_modules/better-sqlite3/prebuilds
+      - run: npx electron-builder --mac --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: henry-macos
+          path: |
+            release/*.dmg
+            release/*.dmg.blockmap
+
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run electron:compile
+      - run: npx electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: henry-windows
+          path: |
+            release/*.exe
+            release/*.exe.blockmap
